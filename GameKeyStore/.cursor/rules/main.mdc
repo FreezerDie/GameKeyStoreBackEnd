@@ -1,0 +1,26 @@
+---
+alwaysApply: true
+---
+## Non-Functional Requirements
+- Backend must use **.NET Framework** as web api with ADO.NET for database interaction.  
+- Database must store:  
+  - Users  
+  - Games (with description, price, category, stock count)  
+  - Orders  
+
+
+---
+
+## Technology Stack
+- **Backend**: .NET Framework, C#, ADO.NET   
+- **Database**: Supabase PG SQL
+- all database tables schemes located in DataBaseScheme folder 
+- **Authentication**: Cookie-based or JWT (depending on requirements)  
+
+---
+
+## Future Improvements (Optional)
+- Payment integration (Stripe/PayPal).  
+- Admin panel for managing games, users, and orders.  
+- Email notifications (order confirmation, password reset).  
+

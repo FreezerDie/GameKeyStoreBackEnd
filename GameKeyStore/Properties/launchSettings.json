@@ -1,0 +1,27 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:3001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SUPABASE_URL": "https://YOUR_PROJECT_ID.supabase.co",
+        "SUPABASE_KEY": "YOUR_ANON_KEY_HERE"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7266;http://localhost:3001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SUPABASE_URL": "https://YOUR_PROJECT_ID.supabase.co",
+        "SUPABASE_KEY": "YOUR_ANON_KEY_HERE"
+      }
+    }
+  }
+}
