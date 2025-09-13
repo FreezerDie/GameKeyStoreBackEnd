@@ -82,7 +82,7 @@ namespace GameKeyStore.Services
 
                 // Find user by email or username
                 var userByEmail = await client.From<User>()
-                    .Where(u => u.Email == loginDto.EmailOrUsername)
+                    .Where(u => u.Email == loginDto.EmailField)
                     .Get();
 
                 var user = userByEmail.Models.FirstOrDefault();
@@ -90,7 +90,7 @@ namespace GameKeyStore.Services
                 if (user == null)
                 {
                     var userByUsername = await client.From<User>()
-                        .Where(u => u.Username == loginDto.EmailOrUsername)
+                        .Where(u => u.Username == loginDto.EmailField)
                         .Get();
 
                     user = userByUsername.Models.FirstOrDefault();
@@ -102,7 +102,7 @@ namespace GameKeyStore.Services
                 }
 
                 // Verify password
-                if (!BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
+                if (!BCrypt.Net.BCrypt.Verify(loginDto.PasswordField, user.Password))
                 {
                     return null; // Invalid password
                 }

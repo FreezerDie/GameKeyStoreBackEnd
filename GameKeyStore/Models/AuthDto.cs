@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace GameKeyStore.Models
 {
@@ -24,10 +25,12 @@ namespace GameKeyStore.Models
     public class LoginDto
     {
         [Required]
-        public string EmailOrUsername { get; set; } = string.Empty;
+        [JsonPropertyName("email")]
+        public string EmailField { get; set; } = string.Empty;
 
         [Required]
-        public string Password { get; set; } = string.Empty;
+        [JsonPropertyName("password")]
+        public string PasswordField { get; set; } = string.Empty;
     }
 
     public class AuthResponseDto

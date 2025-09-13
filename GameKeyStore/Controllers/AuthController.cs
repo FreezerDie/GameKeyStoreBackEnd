@@ -69,7 +69,7 @@ namespace GameKeyStore.Controllers
                     return Unauthorized(new { message = "Invalid email/username or password" });
                 }
 
-                _logger.LogInformation("User logged in successfully: {EmailOrUsername}", loginDto.EmailOrUsername);
+                _logger.LogInformation("User logged in successfully: {Email}", loginDto.EmailField);
                 return Ok(result);
             }
             catch (Exception ex)
