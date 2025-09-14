@@ -48,4 +48,11 @@ namespace GameKeyStore.Models
         [JsonPropertyName("game_id")]
         public long? GameId { get; set; }
     }
+
+    // Extended DTO with game information
+    public class GameKeyWithGameDto : GameKeyDto
+    {
+        [JsonPropertyName("game")]
+        public GameDto? Game { get; set; }
+    }
 }

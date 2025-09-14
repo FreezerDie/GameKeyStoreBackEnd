@@ -33,7 +33,7 @@ namespace GameKeyStore.Controllers
                 var response = await client
                     .From<Category>()
                     .Where(x => x.IsActive == true)  // Only fetch active categories
-                    .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                    .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                     .Get();
                 
                 // Convert BaseModel to DTO for serialization
@@ -112,7 +112,7 @@ namespace GameKeyStore.Controllers
                 // Fetch all categories including inactive ones
                 var response = await client
                     .From<Category>()
-                    .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                    .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                     .Get();
                 
                 // Convert BaseModel to DTO for serialization

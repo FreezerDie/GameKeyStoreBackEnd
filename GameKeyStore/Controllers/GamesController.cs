@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GameKeyStore.Services;
 using GameKeyStore.Models;
+using GameKeyStore.Authorization;
 
 namespace GameKeyStore.Controllers
 {
@@ -22,6 +23,7 @@ namespace GameKeyStore.Controllers
         /// <param name="includeCategory">Whether to include category information in response</param>
         /// <returns>List of games</returns>
         [HttpGet]
+        [RequirePermission("games", "read")]
         public async Task<IActionResult> GetGames([FromQuery] long? categoryId = null, [FromQuery] bool includeCategory = false)
         {
             try
@@ -36,11 +38,11 @@ namespace GameKeyStore.Controllers
                     ? await client
                         .From<Game>()
                         .Where(x => x.CategoryId == categoryId.Value)
-                        .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                        .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                         .Get()
                     : await client
                         .From<Game>()
-                        .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                        .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                         .Get();
                 
                 var games = gamesResponse.Models ?? new List<Game>();
@@ -57,10 +59,10 @@ namespace GameKeyStore.Controllers
                     // Fetch categories in batch
                     var categoriesResponse = await client
                         .From<Category>()
-                        .Where(c => categoryIds.Contains(c.Id))
                         .Get();
                     
-                    var categories = categoriesResponse.Models?.ToDictionary(c => c.Id) ?? new Dictionary<long, Category>();
+                    var allCategories = categoriesResponse.Models ?? new List<Category>();
+                    var categories = allCategories.Where(cat => categoryIds.Contains(cat.Id)).ToDictionary(cat => cat.Id);
                     
                     // Create extended DTOs with category information
                     var gamesWithCategory = games.Select(game => 
@@ -176,6 +178,7 @@ namespace GameKeyStore.Controllers
         /// <param name="includeCategory">Whether to include category information in response</param>
         /// <returns>Game details</returns>
         [HttpGet("{id}")]
+        [RequireGamesRead]
         public async Task<IActionResult> GetGame(long id, [FromQuery] bool includeCategory = false)
         {
             try
@@ -198,7 +201,7 @@ namespace GameKeyStore.Controllers
                         // Fetch category information
                         var categoryResponse = await client
                             .From<Category>()
-                            .Where(c => c.Id == game.CategoryId.Value)
+                            .Where(x => x.Id == game.CategoryId.Value)
                             .Get();
                         
                         var category = categoryResponse.Models?.FirstOrDefault();
@@ -246,6 +249,7 @@ namespace GameKeyStore.Controllers
         /// </summary>
         /// <returns>Games grouped by categories</returns>
         [HttpGet("by-category")]
+        [RequireGamesRead]
         public async Task<IActionResult> GetGamesByCategory()
         {
             try
@@ -256,7 +260,7 @@ namespace GameKeyStore.Controllers
                 // Fetch all games
                 var gamesResponse = await client
                     .From<Game>()
-                    .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                    .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                     .Get();
                 
                 var games = gamesResponse.Models ?? new List<Game>();
@@ -265,7 +269,7 @@ namespace GameKeyStore.Controllers
                 var categoriesResponse = await client
                     .From<Category>()
                     .Where(x => x.IsActive == true)
-                    .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                    .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                     .Get();
                 
                 var categories = categoriesResponse.Models ?? new List<Category>();

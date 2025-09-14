@@ -48,5 +48,18 @@ namespace GameKeyStore.Models
         public string Name { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
+        
+        [JsonPropertyName("role_id")]
+        public long? RoleId { get; set; }
+        
+        [JsonPropertyName("is_staff")]
+        public bool? IsStaff { get; set; }
+    }
+
+    // Extended DTO with role information
+    public class UserWithRoleDto : UserDto
+    {
+        [JsonPropertyName("role")]
+        public RoleDto? Role { get; set; }
     }
 }

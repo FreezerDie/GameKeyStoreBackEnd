@@ -23,7 +23,7 @@ namespace GameKeyStore.Services
 
             var options = new SupabaseOptions
             {
-                AutoConnectRealtime = true
+                AutoConnectRealtime = false  // Disable realtime to avoid connection issues
             };
 
             _supabaseClient = new Client(url, key, options);

@@ -5,7 +5,10 @@ create table public.users (
   name text null,
   username text not null,
   password text null,
+  role_id bigint null,
+  is_staff boolean null,
   constraint users_pkey primary key (id),
   constraint users_email_key unique (email),
-  constraint users_username_key unique (username)
+  constraint users_username_key unique (username),
+  constraint users_role_id_fkey foreign KEY (role_id) references roles (id)
 ) TABLESPACE pg_default;

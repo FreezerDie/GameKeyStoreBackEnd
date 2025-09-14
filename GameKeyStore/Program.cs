@@ -1,6 +1,8 @@
 using GameKeyStore.Services;
+using GameKeyStore.Authorization;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -23,11 +25,23 @@ builder.Services.AddOpenApi();
 // Add Swagger services
 builder.Services.AddSwaggerGen();
 
+// Add memory cache for permissions
+builder.Services.AddMemoryCache();
+
 // Register Supabase service
 builder.Services.AddSingleton<GameKeyStore.Services.SupabaseService>();
 
 // Register Authentication service
 builder.Services.AddScoped<GameKeyStore.Services.AuthService>();
+
+// Register Permission service
+builder.Services.AddScoped<GameKeyStore.Services.PermissionService>();
+
+// Register Permission Manager service
+builder.Services.AddScoped<GameKeyStore.Services.PermissionManager>();
+
+// Register authorization handler
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 // Configure JWT Authentication
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "your-super-secret-jwt-key-that-should-be-changed-in-production";
@@ -55,7 +69,33 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Create permission-based policies
+    var permissions = new[]
+    {
+        // Games permissions
+        ("games", "read"), ("games", "write"), ("games", "delete"), ("games", "admin"),
+        // Users permissions  
+        ("users", "read"), ("users", "write"), ("users", "delete"), ("users", "admin"),
+        // GameKeys permissions
+        ("gamekeys", "read"), ("gamekeys", "write"), ("gamekeys", "delete"), ("gamekeys", "admin"),
+        // Roles permissions
+        ("roles", "read"), ("roles", "write"), ("roles", "delete"), ("roles", "admin"),
+        // Orders permissions
+        ("orders", "read"), ("orders", "write"), ("orders", "delete"), ("orders", "admin")
+    };
+
+    foreach (var (resource, action) in permissions)
+    {
+        options.AddPolicy($"Permission.{resource}.{action}", policy =>
+            policy.Requirements.Add(new PermissionRequirement(resource, action)));
+    }
+
+    // Role-based policies (for backward compatibility)
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+    options.AddPolicy("UserOrAdmin", policy => policy.RequireRole("user", "admin"));
+});
 
 // Add API Explorer for Swagger
 builder.Services.AddEndpointsApiExplorer();
