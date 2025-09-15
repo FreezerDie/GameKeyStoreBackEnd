@@ -20,6 +20,9 @@ namespace GameKeyStore.Models
         [Column("game_id")]
         public long? GameId { get; set; }
 
+        [Column("price")]
+        public long? Price { get; set; }
+
         // Convert to DTO for API responses
         public GameKeyDto ToDto()
         {
@@ -28,7 +31,8 @@ namespace GameKeyStore.Models
                 Id = this.Id,
                 CreatedAt = this.CreatedAt,
                 Key = this.Key,
-                GameId = this.GameId
+                GameId = this.GameId,
+                Price = this.Price
             };
         }
     }
@@ -47,6 +51,9 @@ namespace GameKeyStore.Models
 
         [JsonPropertyName("game_id")]
         public long? GameId { get; set; }
+
+        [JsonPropertyName("price")]
+        public long? Price { get; set; }
     }
 
     // Extended DTO with game information

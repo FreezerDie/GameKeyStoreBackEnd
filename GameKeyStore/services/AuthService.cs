@@ -78,7 +78,7 @@ namespace GameKeyStore.Services
         {
             try
             {
-                await _supabaseService.InitializeAsync();
+                await _supabaseService.InitializeAsync();                                   
                 var client = _supabaseService.GetClient();
 
                 // Find user by email or username

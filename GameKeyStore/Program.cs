@@ -80,6 +80,8 @@ builder.Services.AddAuthorization(options =>
         ("users", "read"), ("users", "write"), ("users", "delete"), ("users", "admin"),
         // GameKeys permissions
         ("gamekeys", "read"), ("gamekeys", "write"), ("gamekeys", "delete"), ("gamekeys", "admin"),
+        // Categories permissions
+        ("categories", "read"), ("categories", "write"), ("categories", "delete"), ("categories", "admin"),
         // Roles permissions
         ("roles", "read"), ("roles", "write"), ("roles", "delete"), ("roles", "admin"),
         // Orders permissions

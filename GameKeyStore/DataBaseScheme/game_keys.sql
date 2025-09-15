@@ -3,6 +3,7 @@ create table public.game_keys (
   created_at timestamp with time zone not null default now(),
   key text null default ''::text,
   game_id bigint null,
+  price bigint null,
   constraint game_keys_pkey primary key (id),
   constraint game_keys_game_id_fkey foreign KEY (game_id) references games (id)
 ) TABLESPACE pg_default;

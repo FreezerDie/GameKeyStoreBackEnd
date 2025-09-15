@@ -404,6 +404,225 @@ namespace GameKeyStore.Controllers
                 });
             }
         }
+
+        #region Games Management
+
+        /// <summary>
+        /// Get all games for admin management
+        /// </summary>
+        [HttpGet("games")]
+        [RequireGamesAdmin]
+        public async Task<IActionResult> GetAllGamesAdmin()
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                var gamesResponse = await client
+                    .From<Game>()
+                    .Get();
+
+                var games = gamesResponse.Models?.Select(g => g.ToDto()) ?? new List<GameDto>();
+                
+                return Ok(new
+                {
+                    message = "Games retrieved successfully",
+                    data = games,
+                    count = games.Count()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving games for admin");
+                return StatusCode(500, new { message = "Error retrieving games" });
+            }
+        }
+
+        /// <summary>
+        /// Create a new game
+        /// </summary>
+        [HttpPost("games")]
+        [RequireGamesAdmin]
+        public async Task<IActionResult> CreateGame([FromBody] CreateGameRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return BadRequest(new { message = "Game name is required" });
+                }
+
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Verify category exists if provided
+                if (request.CategoryId.HasValue)
+                {
+                    var categoryCheck = await client
+                        .From<Category>()
+                        .Where(x => x.Id == request.CategoryId.Value)
+                        .Single();
+                    
+                    if (categoryCheck == null)
+                    {
+                        return BadRequest(new { message = "Category not found" });
+                    }
+                }
+
+                var game = new Game
+                {
+                    Name = request.Name.Trim(),
+                    Description = request.Description?.Trim(),
+                    Cover = request.Cover?.Trim(),
+                    CategoryId = request.CategoryId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var result = await client
+                    .From<Game>()
+                    .Insert(game);
+
+                var createdGame = result.Models?.FirstOrDefault();
+                if (createdGame != null)
+                {
+                    _logger.LogInformation("Game created successfully: {GameName} (ID: {GameId})", 
+                        createdGame.Name, createdGame.Id);
+                    
+                    return CreatedAtAction(nameof(GetAllGamesAdmin), new { id = createdGame.Id }, 
+                        new { 
+                            message = "Game created successfully", 
+                            data = createdGame.ToDto() 
+                        });
+                }
+
+                return BadRequest(new { message = "Failed to create game" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating game: {GameName}", request.Name);
+                return StatusCode(500, new { message = "Error creating game" });
+            }
+        }
+
+        /// <summary>
+        /// Update an existing game
+        /// </summary>
+        [HttpPut("games/{id}")]
+        [RequireGamesAdmin]
+        public async Task<IActionResult> UpdateGame(long id, [FromBody] UpdateGameRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return BadRequest(new { message = "Game name is required" });
+                }
+
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Check if game exists
+                var existingGame = await client
+                    .From<Game>()
+                    .Where(x => x.Id == id)
+                    .Single();
+
+                if (existingGame == null)
+                {
+                    return NotFound(new { message = "Game not found" });
+                }
+
+                // Verify category exists if provided
+                if (request.CategoryId.HasValue)
+                {
+                    var categoryCheck = await client
+                        .From<Category>()
+                        .Where(x => x.Id == request.CategoryId.Value)
+                        .Single();
+                    
+                    if (categoryCheck == null)
+                    {
+                        return BadRequest(new { message = "Category not found" });
+                    }
+                }
+
+                // Update fields
+                existingGame.Name = request.Name.Trim();
+                existingGame.Description = request.Description?.Trim();
+                existingGame.Cover = request.Cover?.Trim();
+                existingGame.CategoryId = request.CategoryId;
+
+                var result = await client
+                    .From<Game>()
+                    .Update(existingGame);
+
+                var updatedGame = result.Models?.FirstOrDefault();
+                if (updatedGame != null)
+                {
+                    _logger.LogInformation("Game updated successfully: {GameName} (ID: {GameId})", 
+                        updatedGame.Name, updatedGame.Id);
+                    
+                    return Ok(new { 
+                        message = "Game updated successfully", 
+                        data = updatedGame.ToDto() 
+                    });
+                }
+
+                return BadRequest(new { message = "Failed to update game" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating game with ID: {GameId}", id);
+                return StatusCode(500, new { message = "Error updating game" });
+            }
+        }
+
+        /// <summary>
+        /// Delete a game (cascades to game keys)
+        /// </summary>
+        [HttpDelete("games/{id}")]
+        [RequireGamesAdmin]
+        public async Task<IActionResult> DeleteGame(long id)
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Check if game exists
+                var existingGame = await client
+                    .From<Game>()
+                    .Where(x => x.Id == id)
+                    .Single();
+
+                if (existingGame == null)
+                {
+                    return NotFound(new { message = "Game not found" });
+                }
+
+                // Delete game (this will cascade delete game keys due to FK constraint)
+                await client
+                    .From<Game>()
+                    .Where(x => x.Id == id)
+                    .Delete();
+
+                _logger.LogInformation("Game deleted successfully: {GameName} (ID: {GameId})", 
+                    existingGame.Name, existingGame.Id);
+
+                return Ok(new { 
+                    message = "Game deleted successfully",
+                    deletedGame = existingGame.ToDto()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting game with ID: {GameId}", id);
+                return StatusCode(500, new { message = "Error deleting game" });
+            }
+        }
+
+        #endregion
     }
 
     // Request DTOs
@@ -417,6 +636,23 @@ namespace GameKeyStore.Controllers
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string[] Permissions { get; set; } = Array.Empty<string>();
+    }
+
+    // Games DTOs
+    public class CreateGameRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Cover { get; set; }
+        public long? CategoryId { get; set; }
+    }
+
+    public class UpdateGameRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Cover { get; set; }
+        public long? CategoryId { get; set; }
     }
 
     public class UpdateRolePermissionsRequest

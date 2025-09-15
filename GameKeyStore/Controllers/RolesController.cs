@@ -122,13 +122,14 @@ namespace GameKeyStore.Controllers
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
                 
-                // Fetch role by name
+                // Fetch role by name (get all and filter in C# due to Supabase LINQ limitations)
                 var response = await client
                     .From<Role>()
-                    .Where(x => x.Name!.ToLower() == name.ToLower())
                     .Get();
                 
-                var role = response.Models?.FirstOrDefault();
+                var role = response.Models?
+                    .FirstOrDefault(x => !string.IsNullOrEmpty(x.Name) && 
+                                   x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
                 
                 if (role != null)
                 {

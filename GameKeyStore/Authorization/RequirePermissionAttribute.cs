@@ -122,6 +122,36 @@ namespace GameKeyStore.Authorization
         public RequireRolesAdminAttribute() : base("roles", "admin") { }
     }
 
+    public class RequireCategoriesReadAttribute : RequirePermissionAttribute
+    {
+        public RequireCategoriesReadAttribute() : base("categories", "read") { }
+    }
+
+    public class RequireCategoriesWriteAttribute : RequirePermissionAttribute
+    {
+        public RequireCategoriesWriteAttribute() : base("categories", "write") { }
+    }
+
+    public class RequireCategoriesAdminAttribute : RequirePermissionAttribute
+    {
+        public RequireCategoriesAdminAttribute() : base("categories", "admin") { }
+    }
+
+    public class RequireOrdersReadAttribute : RequirePermissionAttribute
+    {
+        public RequireOrdersReadAttribute() : base("orders", "read") { }
+    }
+
+    public class RequireOrdersWriteAttribute : RequirePermissionAttribute
+    {
+        public RequireOrdersWriteAttribute() : base("orders", "write") { }
+    }
+
+    public class RequireOrdersAdminAttribute : RequirePermissionAttribute
+    {
+        public RequireOrdersAdminAttribute() : base("orders", "admin") { }
+    }
+
     // Example of custom attributes with manual resource/action definition
     public class RequireCustomResourceAttribute : RequirePermissionAttribute
     {
