@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GameKeyStore.Services;
 using GameKeyStore.Models;
+using System.Security.Claims;
 
 namespace GameKeyStore.Controllers
 {
@@ -289,6 +290,224 @@ namespace GameKeyStore.Controllers
                     message = "Error clearing cache",
                     error = ex.Message
                 });
+            }
+        }
+
+        /// <summary>
+        /// Debug endpoint to check current user's authentication status and all permissions
+        /// </summary>
+        [HttpGet("auth-info")]
+        public async Task<IActionResult> GetAuthInfo()
+        {
+            try
+            {
+                var result = new
+                {
+                    IsAuthenticated = User.Identity?.IsAuthenticated ?? false,
+                    AuthenticationType = User.Identity?.AuthenticationType,
+                    Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
+                    UserInfo = await GetCurrentUserInfo(),
+                    SpecificPermissionCheck = await CheckS3PresignPermission()
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = ex.Message,
+                    stackTrace = ex.StackTrace
+                });
+            }
+        }
+
+        /// <summary>
+        /// Test the specific s3.presign permission
+        /// </summary>
+        [HttpGet("test-s3-permission")]
+        public async Task<IActionResult> TestS3Permission()
+        {
+            try
+            {
+                var hasPermission = await CheckS3PresignPermission();
+                return Ok(hasPermission);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = ex.Message,
+                    stackTrace = ex.StackTrace
+                });
+            }
+        }
+
+        /// <summary>
+        /// Insert the s3.presign permission to role 1
+        /// </summary>
+        [HttpPost("add-s3-permissions")]
+        public async Task<IActionResult> AddS3Permissions()
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                var s3Permissions = new[] { "s3.presign", "s3.delete" };
+
+                var insertedCount = 0;
+
+                foreach (var permission in s3Permissions)
+                {
+                    try
+                    {
+                        // Check if permission already exists
+                        var existingResponse = await client.From<RolePermission>()
+                            .Where(x => x.RoleId == 1 && x.PermissionName == permission)
+                            .Get();
+
+                        if (existingResponse.Models?.Any() == true)
+                        {
+                            _logger.LogInformation($"Permission {permission} already exists for role 1");
+                            continue;
+                        }
+
+                        var rolePermission = new RolePermission
+                        {
+                            RoleId = 1,
+                            PermissionName = permission,
+                            GrantedAt = DateTime.UtcNow
+                        };
+
+                        await client.From<RolePermission>().Insert(rolePermission);
+                        insertedCount++;
+                        _logger.LogInformation($"Inserted permission {permission} for role 1");
+                    }
+                    catch (Exception insertEx)
+                    {
+                        _logger.LogWarning($"Failed to insert permission {permission}: {insertEx.Message}");
+                    }
+                }
+
+                // Clear cache after adding permissions
+                _permissionService.ClearAllPermissionCaches();
+
+                return Ok(new
+                {
+                    message = "S3 permissions processed",
+                    insertedCount = insertedCount,
+                    totalRequested = s3Permissions.Length,
+                    permissions = s3Permissions
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding S3 permissions");
+                return StatusCode(500, new
+                {
+                    message = "Error adding S3 permissions",
+                    error = ex.Message,
+                    stackTrace = ex.StackTrace
+                });
+            }
+        }
+
+        private async Task<object> GetCurrentUserInfo()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+                {
+                    return new { error = "No valid user ID found in claims" };
+                }
+
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                var userResponse = await client.From<User>()
+                    .Where(u => u.Id == userId)
+                    .Get();
+
+                var user = userResponse.Models?.FirstOrDefault();
+                if (user == null)
+                {
+                    return new { error = "User not found in database", userId = userId };
+                }
+
+                return new 
+                { 
+                    userId = user.Id,
+                    email = user.Email,
+                    username = user.Username,
+                    roleId = user.RoleId,
+                    isStaff = user.IsStaff
+                };
+            }
+            catch (Exception ex)
+            {
+                return new { error = ex.Message };
+            }
+        }
+
+        private async Task<object> CheckS3PresignPermission()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+                {
+                    return new { HasPermission = false, Error = "No valid user ID found in claims" };
+                }
+
+                // Get user info
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                var userResponse = await client.From<User>()
+                    .Where(u => u.Id == userId)
+                    .Get();
+
+                var user = userResponse.Models?.FirstOrDefault();
+                if (user == null)
+                {
+                    return new { HasPermission = false, UserId = userId, Error = "User not found in database" };
+                }
+
+                if (!user.RoleId.HasValue)
+                {
+                    return new { HasPermission = false, UserId = userId, UserRoleId = (long?)null, Error = "User has no role assigned" };
+                }
+
+                // Get role permissions
+                var rolePermissionsResponse = await client
+                    .From<RolePermission>()
+                    .Where(x => x.RoleId == user.RoleId.Value)
+                    .Get();
+
+                var rolePermissions = rolePermissionsResponse.Models?.ToList() ?? new List<RolePermission>();
+                var permissionNames = rolePermissions.Select(rp => rp.PermissionName).ToList();
+
+                // Check if s3.presign permission exists
+                var hasS3Presign = rolePermissions.Any(rp => rp.PermissionName == "s3.presign");
+
+                // Also check via permission service
+                var hasPermissionViaService = await _permissionService.UserHasPermissionAsync(userId, "s3", "presign");
+
+                return new 
+                { 
+                    HasPermission = hasPermissionViaService,
+                    HasPermissionDirectCheck = hasS3Presign,
+                    UserId = userId,
+                    UserRoleId = user.RoleId.Value,
+                    RolePermissions = permissionNames,
+                    TotalRolePermissions = rolePermissions.Count
+                };
+            }
+            catch (Exception ex)
+            {
+                return new { HasPermission = false, Error = ex.Message };
             }
         }
     }

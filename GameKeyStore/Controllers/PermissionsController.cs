@@ -19,57 +19,55 @@ namespace GameKeyStore.Controllers
         }
 
         /// <summary>
-        /// Get all permissions from the database
+        /// Get all available permissions from code constants
         /// </summary>
         /// <returns>List of permissions</returns>
         [HttpGet]
         [RequireRolesRead]
-        public async Task<IActionResult> GetPermissions()
+        public IActionResult GetPermissions()
         {
             try
             {
-                await _supabaseService.InitializeAsync();
-                var client = _supabaseService.GetClient();
-                
-                var response = await client
-                    .From<Permission>()
-                    .Order(x => x.Resource!, Supabase.Postgrest.Constants.Ordering.Ascending)
-                    .Get();
-                
-                var permissionDtos = response.Models?.Select(x => x.ToDto()).ToList();
+                var permissions = _permissionService.GetAllAvailablePermissions();
                 
                 return Ok(new { 
-                    message = "Permissions fetched from database", 
-                    count = permissionDtos?.Count ?? 0,
-                    data = permissionDtos
+                    message = "Permissions fetched from code constants", 
+                    count = permissions.Count,
+                    data = permissions
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ Database error: {ex.Message}");
-                
-                // Return default permissions as fallback
-                var defaultPermissions = new List<PermissionDto>
-                {
-                    new PermissionDto { Id = 1, Name = "games.read", Description = "Read games", Resource = "games", Action = "read" },
-                    new PermissionDto { Id = 2, Name = "games.write", Description = "Create/update games", Resource = "games", Action = "write" },
-                    new PermissionDto { Id = 3, Name = "games.admin", Description = "Full games management", Resource = "games", Action = "admin" },
-                    new PermissionDto { Id = 4, Name = "users.read", Description = "Read users", Resource = "users", Action = "read" },
-                    new PermissionDto { Id = 5, Name = "users.write", Description = "Create/update users", Resource = "users", Action = "write" },
-                    new PermissionDto { Id = 6, Name = "users.admin", Description = "Full user management", Resource = "users", Action = "admin" },
-                    new PermissionDto { Id = 7, Name = "gamekeys.read", Description = "Read game keys", Resource = "gamekeys", Action = "read" },
-                    new PermissionDto { Id = 8, Name = "gamekeys.write", Description = "Create/update game keys", Resource = "gamekeys", Action = "write" },
-                    new PermissionDto { Id = 9, Name = "gamekeys.admin", Description = "Full game keys management", Resource = "gamekeys", Action = "admin" },
-                    new PermissionDto { Id = 10, Name = "roles.read", Description = "Read roles", Resource = "roles", Action = "read" },
-                    new PermissionDto { Id = 11, Name = "roles.write", Description = "Create/update roles", Resource = "roles", Action = "write" },
-                    new PermissionDto { Id = 12, Name = "roles.admin", Description = "Full roles management", Resource = "roles", Action = "admin" }
-                };
+                return BadRequest(new { 
+                    message = "Error fetching permissions", 
+                    error = ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get permissions grouped by resource
+        /// </summary>
+        /// <returns>Permissions grouped by resource</returns>
+        [HttpGet("grouped")]
+        [RequireRolesRead]
+        public IActionResult GetPermissionsGrouped()
+        {
+            try
+            {
+                var permissionsByResource = _permissionService.GetPermissionsByResource();
                 
                 return Ok(new { 
-                    message = "Using fallback data - database connection failed", 
-                    error = ex.Message,
-                    count = defaultPermissions.Count,
-                    data = defaultPermissions
+                    message = "Permissions grouped by resource", 
+                    count = permissionsByResource.Keys.Count,
+                    data = permissionsByResource
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { 
+                    message = "Error fetching grouped permissions", 
+                    error = ex.Message 
                 });
             }
         }
@@ -166,6 +164,16 @@ namespace GameKeyStore.Controllers
         {
             try
             {
+                // Validate permission name against code constants
+                if (!_permissionService.IsValidPermission(permissionName))
+                {
+                    return BadRequest(new { 
+                        message = "Invalid permission name", 
+                        permissionName = permissionName,
+                        hint = "Use GET /api/permissions to see all available permissions"
+                    });
+                }
+
                 var result = await _permissionService.AddPermissionToRoleAsync(roleId, permissionName);
                 
                 if (result)
@@ -313,6 +321,46 @@ namespace GameKeyStore.Controllers
             {
                 return BadRequest(new { 
                     message = "Error clearing permission caches", 
+                    error = ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get available role templates
+        /// </summary>
+        /// <returns>List of role templates with their permissions</returns>
+        [HttpGet("role-templates")]
+        [RequireRolesRead]
+        public IActionResult GetRoleTemplates()
+        {
+            try
+            {
+                var roleTemplates = _permissionService.GetAvailableRoleTemplates();
+                
+                var templatesWithDetails = roleTemplates.Select(template => new
+                {
+                    name = template.Name,
+                    description = template.Description,
+                    permissions = template.Permissions.Select(p => new
+                    {
+                        name = p.Name,
+                        description = p.Description,
+                        resource = p.Resource,
+                        action = p.Action
+                    }).ToList()
+                }).ToList();
+                
+                return Ok(new { 
+                    message = "Role templates fetched from code constants",
+                    count = templatesWithDetails.Count,
+                    data = templatesWithDetails
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { 
+                    message = "Error fetching role templates", 
                     error = ex.Message 
                 });
             }

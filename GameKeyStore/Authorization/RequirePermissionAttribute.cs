@@ -57,6 +57,12 @@ namespace GameKeyStore.Authorization
             public const string Delete = "orders.delete";
             public const string Admin = "orders.admin";
         }
+
+        public static class S3
+        {
+            public const string Presign = "s3.presign";
+            public const string Delete = "s3.delete";
+        }
     }
 
     /// <summary>
@@ -161,5 +167,15 @@ namespace GameKeyStore.Authorization
     public class RequireSpecialOperationAttribute : RequirePermissionAttribute
     {
         public RequireSpecialOperationAttribute() : base("system", "special-operation") { }
+    }
+
+    public class RequireS3PresignAttribute : RequirePermissionAttribute
+    {
+        public RequireS3PresignAttribute() : base("s3", "presign") { }
+    }
+
+    public class RequireS3DeleteAttribute : RequirePermissionAttribute
+    {
+        public RequireS3DeleteAttribute() : base("s3", "delete") { }
     }
 }

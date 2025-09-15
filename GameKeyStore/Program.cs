@@ -40,6 +40,9 @@ builder.Services.AddScoped<GameKeyStore.Services.PermissionService>();
 // Register Permission Manager service
 builder.Services.AddScoped<GameKeyStore.Services.PermissionManager>();
 
+// Register S3 service
+builder.Services.AddScoped<GameKeyStore.Services.S3Service>();
+
 // Register authorization handler
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
@@ -85,7 +88,9 @@ builder.Services.AddAuthorization(options =>
         // Roles permissions
         ("roles", "read"), ("roles", "write"), ("roles", "delete"), ("roles", "admin"),
         // Orders permissions
-        ("orders", "read"), ("orders", "write"), ("orders", "delete"), ("orders", "admin")
+        ("orders", "read"), ("orders", "write"), ("orders", "delete"), ("orders", "admin"),
+        // S3 permissions
+        ("s3", "presign"), ("s3", "delete")
     };
 
     foreach (var (resource, action) in permissions)

@@ -56,32 +56,32 @@ namespace GameKeyStore.Controllers
         }
 
         /// <summary>
-        /// Seed all default permissions
+        /// Validate all available permissions (permissions are defined in code constants)
         /// </summary>
-        [HttpPost("seed-permissions")]
+        [HttpPost("validate-permissions-system")]
         [RequireRolesAdmin]
-        public async Task<IActionResult> SeedPermissions()
+        public async Task<IActionResult> ValidatePermissionsSystem()
         {
             try
             {
-                var success = await _permissionManager.SeedPermissionsAsync();
+                var success = await _permissionManager.ValidatePermissionsAsync();
                 
                 if (success)
                 {
                     return Ok(new { 
-                        message = "Permissions seeded successfully"
+                        message = "Permissions validated successfully - all permissions are available from code constants"
                     });
                 }
                 else
                 {
                     return BadRequest(new { 
-                        message = "Failed to seed permissions"
+                        message = "Failed to validate permissions"
                     });
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error seeding permissions");
+                _logger.LogError(ex, "Error validating permissions");
                 return StatusCode(500, new { 
                     message = "Internal server error",
                     error = ex.Message
@@ -366,12 +366,11 @@ namespace GameKeyStore.Controllers
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
 
-                // Get counts from database
-                var permissionsResponse = await client.From<Permission>().Get();
+                // Get counts from database (permissions from code constants)
                 var rolesResponse = await client.From<Role>().Get();
                 var usersResponse = await client.From<User>().Get();
 
-                var permissionsCount = permissionsResponse.Models?.Count ?? 0;
+                var permissionsCount = PermissionConstants.GetAllPermissions().Count;
                 var rolesCount = rolesResponse.Models?.Count ?? 0;
                 var usersCount = usersResponse.Models?.Count ?? 0;
 

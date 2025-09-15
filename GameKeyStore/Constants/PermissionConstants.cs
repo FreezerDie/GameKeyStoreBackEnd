@@ -20,6 +20,7 @@ namespace GameKeyStore.Constants
             public const string Orders = "orders";
             public const string Reports = "reports";
             public const string System = "system";
+            public const string S3 = "s3";
         }
 
         // Action names
@@ -32,6 +33,7 @@ namespace GameKeyStore.Constants
             public const string Admin = "admin";
             public const string Manage = "manage";
             public const string Execute = "execute";
+            public const string Presign = "presign";
         }
 
         // Pre-defined permission combinations
@@ -90,6 +92,10 @@ namespace GameKeyStore.Constants
             // System Administration
             public static readonly PermissionDefinition SystemAdmin = new(Resources.System, Actions.Admin, "system.admin", "Full system administration access");
             public static readonly PermissionDefinition SystemExecute = new(Resources.System, Actions.Execute, "system.execute", "Execute system operations");
+
+            // S3 Management
+            public static readonly PermissionDefinition S3Presign = new(Resources.S3, Actions.Presign, "s3.presign", "Generate presigned upload URLs");
+            public static readonly PermissionDefinition S3Delete = new(Resources.S3, Actions.Delete, "s3.delete", "Delete files from S3");
         }
 
         /// <summary>
@@ -151,7 +157,11 @@ namespace GameKeyStore.Constants
 
                 // System permissions
                 Permissions.SystemAdmin,
-                Permissions.SystemExecute
+                Permissions.SystemExecute,
+
+                // S3 permissions
+                Permissions.S3Presign,
+                Permissions.S3Delete
             };
         }
 

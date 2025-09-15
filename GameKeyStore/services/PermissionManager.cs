@@ -20,53 +20,24 @@ namespace GameKeyStore.Services
         }
 
         /// <summary>
-        /// Seed all default permissions into the database
+        /// Validate that all permissions are available in code constants
+        /// (No database seeding needed since permissions are code-based)
         /// </summary>
-        public async Task<bool> SeedPermissionsAsync()
+        public Task<bool> ValidatePermissionsAsync()
         {
             try
             {
-                await _supabaseService.InitializeAsync();
-                var client = _supabaseService.GetClient();
-
-                // Get existing permissions to avoid duplicates
-                var existingPermissionsResponse = await client
-                    .From<Permission>()
-                    .Get();
-
-                var existingPermissions = existingPermissionsResponse.Models ?? new List<Permission>();
-                var existingNames = existingPermissions.Select(p => p.Name).ToHashSet();
-
-                // Get all permission definitions
+                // Get all permission definitions from code
                 var allPermissions = PermissionConstants.GetAllPermissions();
                 
-                // Filter out permissions that already exist
-                var permissionsToCreate = allPermissions
-                    .Where(pd => !existingNames.Contains(pd.Name))
-                    .Select(pd => pd.ToPermission())
-                    .ToList();
-
-                if (permissionsToCreate.Any())
-                {
-                    var result = await client
-                        .From<Permission>()
-                        .Insert(permissionsToCreate);
-
-                    var createdCount = result.Models?.Count ?? 0;
-                    _logger.LogInformation("Seeded {Count} new permissions", createdCount);
-                    
-                    return createdCount > 0;
-                }
-                else
-                {
-                    _logger.LogInformation("All permissions already exist in database");
-                    return true;
-                }
+                _logger.LogInformation("Validated {Count} permissions from code constants", allPermissions.Count);
+                
+                return Task.FromResult(allPermissions.Any());
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error seeding permissions");
-                return false;
+                _logger.LogError(ex, "Error validating permissions");
+                return Task.FromResult(false);
             }
         }
 
@@ -123,19 +94,11 @@ namespace GameKeyStore.Services
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
 
-                // Get all permissions from database to find IDs
-                var allPermissionsResponse = await client
-                    .From<Permission>()
-                    .Get();
-
-                var allPermissions = allPermissionsResponse.Models ?? new List<Permission>();
-                var permissionMap = allPermissions.ToDictionary(p => p.Name, p => p.Id);
-
                 // Get existing role permissions to avoid duplicates
                 var existingRolePermissions = await _permissionService.GetRolePermissionsAsync(roleId);
                 var existingPermissionNames = existingRolePermissions.Select(p => p.Name).ToHashSet();
 
-                // Create role-permission relationships
+                // Create role-permission relationships (only storing permission names)
                 var rolePermissions = new List<RolePermission>();
                 
                 foreach (var permDef in permissionDefinitions)
@@ -145,7 +108,7 @@ namespace GameKeyStore.Services
                         rolePermissions.Add(new RolePermission
                         {
                             RoleId = roleId,
-                            PermissionName = permDef.Name,  // Use PermissionName instead of PermissionId
+                            PermissionName = permDef.Name,
                             GrantedAt = DateTime.UtcNow
                         });
                     }
@@ -228,7 +191,7 @@ namespace GameKeyStore.Services
         }
 
         /// <summary>
-        /// Initialize the permission system (seed permissions and roles)
+        /// Initialize the permission system (validate permissions and seed roles)
         /// </summary>
         public async Task<bool> InitializePermissionSystemAsync()
         {
@@ -236,11 +199,11 @@ namespace GameKeyStore.Services
             {
                 _logger.LogInformation("Initializing permission system...");
 
-                // First, seed all permissions
-                var permissionsSeeded = await SeedPermissionsAsync();
-                if (!permissionsSeeded)
+                // First, validate all permissions are available in code
+                var permissionsValid = await ValidatePermissionsAsync();
+                if (!permissionsValid)
                 {
-                    _logger.LogError("Failed to seed permissions");
+                    _logger.LogError("Failed to validate permissions");
                     return false;
                 }
 

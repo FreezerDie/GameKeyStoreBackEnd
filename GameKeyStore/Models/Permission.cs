@@ -1,26 +1,18 @@
 using System.Text.Json.Serialization;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
+using GameKeyStore.Constants;
 
 namespace GameKeyStore.Models
 {
-    // Database model - used for Supabase operations
-    [Table("permissions")]
-    public class Permission : BaseModel
+    // Permission model - works with code-based permission system
+    // Permissions are defined in PermissionConstants, not stored in database
+    public class Permission
     {
-        [PrimaryKey("id", false)]
         public long Id { get; set; }
-
-        [Column("name")]
         public string Name { get; set; } = string.Empty;
-
-        [Column("description")]
         public string? Description { get; set; }
-
-        [Column("resource")]
         public string Resource { get; set; } = string.Empty;
-
-        [Column("action")]
         public string Action { get; set; } = string.Empty;
 
         // Convert to DTO for API responses
@@ -35,6 +27,71 @@ namespace GameKeyStore.Models
                 Action = this.Action
             };
         }
+
+        /// <summary>
+        /// Create Permission from PermissionDefinition
+        /// </summary>
+        public static Permission FromDefinition(PermissionDefinition definition, long? id = null)
+        {
+            return new Permission
+            {
+                Id = id ?? 0,
+                Name = definition.Name,
+                Description = definition.Description,
+                Resource = definition.Resource,
+                Action = definition.Action
+            };
+        }
+
+        /// <summary>
+        /// Create Permission from permission name (e.g., "games.read")
+        /// </summary>
+        public static Permission FromPermissionName(string permissionName)
+        {
+            // Try to find the permission definition first
+            var allPermissions = PermissionConstants.GetAllPermissions();
+            var definition = allPermissions.FirstOrDefault(p => p.Name == permissionName);
+            
+            if (definition != null)
+            {
+                return FromDefinition(definition);
+            }
+
+            // If not found in constants, parse the name
+            var parts = permissionName.Split('.');
+            if (parts.Length == 2)
+            {
+                return new Permission
+                {
+                    Id = 0,
+                    Name = permissionName,
+                    Resource = parts[0],
+                    Action = parts[1],
+                    Description = $"Permission for {parts[1]} action on {parts[0]} resource"
+                };
+            }
+
+            throw new ArgumentException($"Invalid permission name format: {permissionName}");
+        }
+
+        /// <summary>
+        /// Get all available permissions from code constants
+        /// </summary>
+        public static List<Permission> GetAllAvailablePermissions()
+        {
+            return PermissionConstants.GetAllPermissions()
+                .Select((def, index) => FromDefinition(def, index + 1))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Check if a permission name is valid
+        /// </summary>
+        public static bool IsValidPermissionName(string permissionName)
+        {
+            var allPermissions = PermissionConstants.GetAllPermissions();
+            return allPermissions.Any(p => p.Name == permissionName);
+        }
     }
 
     // Database model for role-permission relationship
@@ -47,7 +104,7 @@ namespace GameKeyStore.Models
         [Column("role_id")]
         public long RoleId { get; set; }
 
-        [Column("premission")]  // Note: matches the database column name (with typo)
+        [Column("permission")]  // Updated to match corrected database column name
         public string PermissionName { get; set; } = string.Empty;
 
         [Column("granted_at")]

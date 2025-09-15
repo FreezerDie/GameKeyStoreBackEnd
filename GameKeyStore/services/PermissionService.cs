@@ -1,4 +1,5 @@
 using GameKeyStore.Models;
+using GameKeyStore.Constants;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 
@@ -48,24 +49,20 @@ namespace GameKeyStore.Services
                     return emptyList;
                 }
 
-                // Convert permission names to Permission objects
+                // Convert permission names to Permission objects using the new static method
                 var permissions = new List<Permission>();
                 foreach (var rolePermission in rolePermissions)
                 {
                     if (!string.IsNullOrEmpty(rolePermission.PermissionName))
                     {
-                        // Parse permission name (e.g., "games.read" -> resource: "games", action: "read")
-                        var parts = rolePermission.PermissionName.Split('.');
-                        if (parts.Length == 2)
+                        try
                         {
-                            permissions.Add(new Permission
-                            {
-                                Id = 0, // Not used since we're working with names directly
-                                Name = rolePermission.PermissionName,
-                                Resource = parts[0],
-                                Action = parts[1],
-                                Description = $"Permission for {parts[1]} action on {parts[0]} resource"
-                            });
+                            permissions.Add(Permission.FromPermissionName(rolePermission.PermissionName));
+                        }
+                        catch (ArgumentException)
+                        {
+                            // Skip invalid permission names
+                            continue;
                         }
                     }
                 }
@@ -269,6 +266,43 @@ namespace GameKeyStore.Services
             
             // Note: IMemoryCache doesn't have a built-in "clear all" method
             // In production, consider using distributed cache with tagging support
+        }
+
+        /// <summary>
+        /// Get all available permissions from code constants
+        /// </summary>
+        public List<PermissionDto> GetAllAvailablePermissions()
+        {
+            return Permission.GetAllAvailablePermissions()
+                .Select(p => p.ToDto())
+                .ToList();
+        }
+
+        /// <summary>
+        /// Get permissions grouped by resource
+        /// </summary>
+        public Dictionary<string, List<PermissionDto>> GetPermissionsByResource()
+        {
+            var allPermissions = Permission.GetAllAvailablePermissions();
+            return allPermissions
+                .GroupBy(p => p.Resource)
+                .ToDictionary(g => g.Key, g => g.Select(p => p.ToDto()).ToList());
+        }
+
+        /// <summary>
+        /// Validate if a permission name is valid according to code constants
+        /// </summary>
+        public bool IsValidPermission(string permissionName)
+        {
+            return Permission.IsValidPermissionName(permissionName);
+        }
+
+        /// <summary>
+        /// Get available role templates from code constants
+        /// </summary>
+        public List<RoleTemplate> GetAvailableRoleTemplates()
+        {
+            return PermissionConstants.RoleTemplates.GetAllRoleTemplates();
         }
     }
 }
