@@ -17,6 +17,7 @@ namespace GameKeyStore.Controllers
         }
 
         /// <summary>
+        /// 
         /// Get all game keys from the database with optional game filtering
         /// </summary>
         /// <param name="gameId">Optional game ID to filter game keys</param>
