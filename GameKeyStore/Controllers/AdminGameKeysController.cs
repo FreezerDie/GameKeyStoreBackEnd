@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using GameKeyStore.Services;
 using GameKeyStore.Authorization;
 using GameKeyStore.Models;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace GameKeyStore.Controllers
 {
@@ -115,6 +117,16 @@ namespace GameKeyStore.Controllers
         {
             try
             {
+                // Check model validation
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new { 
+                        message = "Validation failed", 
+                        errors = ModelState.Where(x => x.Value?.Errors.Count > 0)
+                            .ToDictionary(x => x.Key, x => x.Value?.Errors.Select(e => e.ErrorMessage) ?? Enumerable.Empty<string>())
+                    });
+                }
+
                 if (string.IsNullOrWhiteSpace(request.Key))
                 {
                     return BadRequest(new { message = "Game key is required" });
@@ -156,6 +168,7 @@ namespace GameKeyStore.Controllers
                     Key = trimmedKey,
                     GameId = request.GameId.Value,
                     Price = request.Price,
+                    KeyType = request.KeyType,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -194,6 +207,16 @@ namespace GameKeyStore.Controllers
         {
             try
             {
+                // Check model validation
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new { 
+                        message = "Validation failed", 
+                        errors = ModelState.Where(x => x.Value?.Errors.Count > 0)
+                            .ToDictionary(x => x.Key, x => x.Value?.Errors.Select(e => e.ErrorMessage) ?? Enumerable.Empty<string>())
+                    });
+                }
+
                 if (string.IsNullOrWhiteSpace(request.Key))
                 {
                     return BadRequest(new { message = "Game key is required" });
@@ -248,6 +271,10 @@ namespace GameKeyStore.Controllers
                 if (request.Price.HasValue)
                 {
                     existingGameKey.Price = request.Price.Value;
+                }
+                if (!string.IsNullOrEmpty(request.KeyType))
+                {
+                    existingGameKey.KeyType = request.KeyType;
                 }
 
                 var result = await client
@@ -327,6 +354,16 @@ namespace GameKeyStore.Controllers
         {
             try
             {
+                // Check model validation
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new { 
+                        message = "Validation failed", 
+                        errors = ModelState.Where(x => x.Value?.Errors.Count > 0)
+                            .ToDictionary(x => x.Key, x => x.Value?.Errors.Select(e => e.ErrorMessage) ?? Enumerable.Empty<string>())
+                    });
+                }
+
                 if (!request.GameId.HasValue)
                 {
                     return BadRequest(new { message = "Game ID is required" });
@@ -383,6 +420,7 @@ namespace GameKeyStore.Controllers
                     Key = key,
                     GameId = request.GameId.Value,
                     Price = request.Price,
+                    KeyType = request.KeyType,
                     CreatedAt = DateTime.UtcNow
                 }).ToList();
 
@@ -417,23 +455,49 @@ namespace GameKeyStore.Controllers
 
     public class CreateGameKeyRequest
     {
+        [Required(ErrorMessage = "Game key is required")]
         public string Key { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "Game ID is required")]
+        [JsonPropertyName("game_id")]
         public long? GameId { get; set; }
-        public long? Price { get; set; }
+        
+        [JsonPropertyName("price")]
+        public float? Price { get; set; }
+        
+        [JsonPropertyName("key_type")]
+        public string? KeyType { get; set; }
     }
 
     public class UpdateGameKeyRequest
     {
+        [Required(ErrorMessage = "Game key is required")]
         public string Key { get; set; } = string.Empty;
+        
+        [JsonPropertyName("game_id")]
         public long? GameId { get; set; }
-        public long? Price { get; set; }
+        
+        [JsonPropertyName("price")]
+        public float? Price { get; set; }
+        
+        [JsonPropertyName("key_type")]
+        public string? KeyType { get; set; }
     }
 
     public class BulkCreateGameKeysRequest
     {
+        [Required(ErrorMessage = "Game ID is required")]
+        [JsonPropertyName("game_id")]
         public long? GameId { get; set; }
+        
+        [Required(ErrorMessage = "At least one key is required")]
         public List<string> Keys { get; set; } = new List<string>();
-        public long? Price { get; set; }
+        
+        [JsonPropertyName("price")]
+        public float? Price { get; set; }
+        
+        [JsonPropertyName("key_type")]
+        public string? KeyType { get; set; }
     }
 
     #endregion

@@ -407,7 +407,7 @@ namespace GameKeyStore.Controllers
         #region Games Management
 
         /// <summary>
-        /// Get all games for admin management
+        /// Get all games for admin management with category information
         /// </summary>
         [HttpGet("games")]
         [RequireGamesAdmin]
@@ -418,18 +418,65 @@ namespace GameKeyStore.Controllers
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
 
+                // Fetch all games
                 var gamesResponse = await client
                     .From<Game>()
+                    .Order(x => x.Name!, Supabase.Postgrest.Constants.Ordering.Ascending)
                     .Get();
 
-                var games = gamesResponse.Models?.Select(g => g.ToDto()) ?? new List<GameDto>();
+                var games = gamesResponse.Models ?? new List<Game>();
                 
-                return Ok(new
+                if (games.Any())
                 {
-                    message = "Games retrieved successfully",
-                    data = games,
-                    count = games.Count()
-                });
+                    // Get all unique category IDs from the games
+                    var categoryIds = games
+                        .Where(g => g.CategoryId.HasValue)
+                        .Select(g => g.CategoryId!.Value)
+                        .Distinct()
+                        .ToList();
+                    
+                    // Fetch all categories in batch
+                    var categoriesResponse = await client
+                        .From<Category>()
+                        .Get();
+                    
+                    var allCategories = categoriesResponse.Models ?? new List<Category>();
+                    var categories = allCategories.Where(cat => categoryIds.Contains(cat.Id)).ToDictionary(cat => cat.Id);
+                    
+                    // Create extended DTOs with category information
+                    var gamesWithCategory = games.Select(game => 
+                    {
+                        var gameWithCategory = new GameWithCategoryDto
+                        {
+                            Id = game.Id,
+                            CreatedAt = game.CreatedAt,
+                            Name = game.Name,
+                            Description = game.Description,
+                            Cover = game.Cover,
+                            CategoryId = game.CategoryId,
+                            Category = game.CategoryId.HasValue && categories.ContainsKey(game.CategoryId.Value)
+                                ? categories[game.CategoryId.Value].ToDto()
+                                : null
+                        };
+                        return gameWithCategory;
+                    }).ToList();
+                    
+                    return Ok(new
+                    {
+                        message = "Games with categories retrieved successfully for admin",
+                        data = gamesWithCategory,
+                        count = gamesWithCategory.Count
+                    });
+                }
+                else
+                {
+                    return Ok(new
+                    {
+                        message = "No games found",
+                        data = new List<GameWithCategoryDto>(),
+                        count = 0
+                    });
+                }
             }
             catch (Exception ex)
             {

@@ -18,6 +18,7 @@ namespace GameKeyStore.Constants
             public const string Roles = "roles";
             public const string Permissions = "permissions";
             public const string Orders = "orders";
+            public const string Cart = "cart";
             public const string Reports = "reports";
             public const string System = "system";
             public const string S3 = "s3";
@@ -85,6 +86,12 @@ namespace GameKeyStore.Constants
             public static readonly PermissionDefinition OrdersDelete = new(Resources.Orders, Actions.Delete, "orders.delete", "Cancel/delete orders");
             public static readonly PermissionDefinition OrdersAdmin = new(Resources.Orders, Actions.Admin, "orders.admin", "Full orders management");
 
+            // Cart Management
+            public static readonly PermissionDefinition CartRead = new(Resources.Cart, Actions.Read, "cart.read", "View cart items");
+            public static readonly PermissionDefinition CartCreate = new(Resources.Cart, Actions.Create, "cart.create", "Add items to cart");
+            public static readonly PermissionDefinition CartUpdate = new(Resources.Cart, Actions.Update, "cart.update", "Update cart items");
+            public static readonly PermissionDefinition CartDelete = new(Resources.Cart, Actions.Delete, "cart.delete", "Remove items from cart");
+
             // Reports
             public static readonly PermissionDefinition ReportsRead = new(Resources.Reports, Actions.Read, "reports.read", "View basic reports");
             public static readonly PermissionDefinition ReportsAdmin = new(Resources.Reports, Actions.Admin, "reports.admin", "Access all reports and analytics");
@@ -150,6 +157,12 @@ namespace GameKeyStore.Constants
                 Permissions.OrdersUpdate,
                 Permissions.OrdersDelete,
                 Permissions.OrdersAdmin,
+
+                // Cart permissions
+                Permissions.CartRead,
+                Permissions.CartCreate,
+                Permissions.CartUpdate,
+                Permissions.CartDelete,
 
                 // Reports permissions
                 Permissions.ReportsRead,
@@ -233,6 +246,10 @@ namespace GameKeyStore.Constants
             {
                 Permissions.GamesRead,
                 Permissions.CategoriesRead,
+                Permissions.CartRead,
+                Permissions.CartCreate,
+                Permissions.CartUpdate,
+                Permissions.CartDelete,
                 Permissions.OrdersCreate,
                 Permissions.OrdersRead
             });

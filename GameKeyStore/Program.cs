@@ -43,6 +43,9 @@ builder.Services.AddScoped<GameKeyStore.Services.PermissionManager>();
 // Register S3 service
 builder.Services.AddScoped<GameKeyStore.Services.S3Service>();
 
+// Register Email service with HttpClient
+builder.Services.AddHttpClient<GameKeyStore.Services.EmailService>();
+
 // Register authorization handler
 builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 

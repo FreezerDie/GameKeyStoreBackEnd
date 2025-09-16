@@ -69,4 +69,21 @@ namespace GameKeyStore.Models
         [JsonPropertyName("category")]
         public CategoryDto? Category { get; set; }
     }
+
+    // Extended DTO with game keys information
+    public class GameWithKeysDto : GameDto
+    {
+        [JsonPropertyName("game_keys")]
+        public List<GameKeyDto>? GameKeys { get; set; }
+    }
+
+    // Extended DTO with both category and game keys information
+    public class GameWithCategoryAndKeysDto : GameDto
+    {
+        [JsonPropertyName("category")]
+        public CategoryDto? Category { get; set; }
+        
+        [JsonPropertyName("game_keys")]
+        public List<GameKeyDto>? GameKeys { get; set; }
+    }
 }

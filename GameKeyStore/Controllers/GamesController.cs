@@ -176,13 +176,17 @@ namespace GameKeyStore.Controllers
         /// </summary>
         /// <param name="id">The game ID</param>
         /// <param name="includeCategory">Whether to include category information in response</param>
+        /// <param name="includeGameKeys">Whether to include game keys information in response</param>
         /// <returns>Game details</returns>
         [HttpGet("{id}")]
         [RequireGamesRead]
-        public async Task<IActionResult> GetGame(long id, [FromQuery] bool includeCategory = false)
+        public async Task<IActionResult> GetGame(long id, [FromQuery] bool includeCategory = false, [FromQuery] bool includeGameKeys = true)
         {
             try
             {
+                // Debug logging to see what parameters are being received
+                Console.WriteLine($"🔍 GetGame called with id={id}, includeCategory={includeCategory}, includeGameKeys={includeGameKeys}");
+                
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
                 
@@ -196,16 +200,77 @@ namespace GameKeyStore.Controllers
                 
                 if (game != null)
                 {
+                    Category? category = null;
+                    List<GameKey>? gameKeys = null;
+                    
+                    // Fetch category information if requested
                     if (includeCategory && game.CategoryId.HasValue)
                     {
-                        // Fetch category information
                         var categoryResponse = await client
                             .From<Category>()
                             .Where(x => x.Id == game.CategoryId.Value)
                             .Get();
                         
-                        var category = categoryResponse.Models?.FirstOrDefault();
+                        category = categoryResponse.Models?.FirstOrDefault();
+                    }
+                    
+                    // Fetch game keys if requested
+                    if (includeGameKeys)
+                    {
+                        Console.WriteLine($"🔍 Fetching game keys for game ID: {id}");
+                        try
+                        {
+                            var gameKeysResponse = await client
+                                .From<GameKey>()
+                                .Where(x => x.GameId == id)
+                                .Order(x => x.CreatedAt, Supabase.Postgrest.Constants.Ordering.Descending)
+                                .Get();
+                            
+                            gameKeys = gameKeysResponse.Models ?? new List<GameKey>();
+                            Console.WriteLine($"🔍 Found {gameKeys.Count} game keys for game ID: {id}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"⚠️ Error fetching game keys: {ex.Message}");
+                            // If there's an error fetching game keys, return empty list
+                            gameKeys = new List<GameKey>();
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"🔍 includeGameKeys is false, skipping game keys fetch");
+                    }
+                    
+                    // Return appropriate DTO based on what's included
+                    Console.WriteLine($"🔍 Decision time: includeCategory={includeCategory}, includeGameKeys={includeGameKeys}");
+                    
+                    if (includeCategory && includeGameKeys)
+                    {
+                        Console.WriteLine($"🔍 Taking path: Both category and game keys");
+                        var gameWithCategoryAndKeys = new GameWithCategoryAndKeysDto
+                        {
+                            Id = game.Id,
+                            CreatedAt = game.CreatedAt,
+                            Name = game.Name,
+                            Description = game.Description,
+                            Cover = game.Cover,
+                            CategoryId = game.CategoryId,
+                            Category = category?.ToDto(),
+                            GameKeys = gameKeys?.Any() == true 
+                                ? gameKeys.Select(x => x.ToDto()).ToList() 
+                                : new List<GameKeyDto>()
+                        };
                         
+                        return Ok(new { 
+                            message = gameWithCategoryAndKeys.GameKeys.Any() 
+                                ? "Game with category and keys found" 
+                                : "Game with category found (no keys available)", 
+                            data = gameWithCategoryAndKeys
+                        });
+                    }
+                    else if (includeCategory)
+                    {
+                        Console.WriteLine($"🔍 Taking path: Category only");
                         var gameWithCategory = new GameWithCategoryDto
                         {
                             Id = game.Id,
@@ -222,8 +287,32 @@ namespace GameKeyStore.Controllers
                             data = gameWithCategory
                         });
                     }
+                    else if (includeGameKeys)
+                    {
+                        Console.WriteLine($"🔍 Taking path: Game keys only");
+                        var gameWithKeys = new GameWithKeysDto
+                        {
+                            Id = game.Id,
+                            CreatedAt = game.CreatedAt,
+                            Name = game.Name,
+                            Description = game.Description,
+                            Cover = game.Cover,
+                            CategoryId = game.CategoryId,
+                            GameKeys = gameKeys?.Any() == true 
+                                ? gameKeys.Select(x => x.ToDto()).ToList() 
+                                : new List<GameKeyDto>()
+                        };
+                        
+                        return Ok(new { 
+                            message = gameWithKeys.GameKeys.Any() 
+                                ? "Game with keys found" 
+                                : "Game found (no keys available)", 
+                            data = gameWithKeys
+                        });
+                    }
                     else
                     {
+                        Console.WriteLine($"🔍 Taking path: Basic game info only");
                         return Ok(new { 
                             message = "Game found", 
                             data = game.ToDto()

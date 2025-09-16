@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
@@ -5,8 +6,8 @@ using Supabase.Postgrest.Models;
 namespace GameKeyStore.Models
 {
     // Database model - used for Supabase operations
-    [Table("game_keys")]
-    public class GameKey : BaseModel
+    [Table("sub_orders")]
+    public class SubOrder : BaseModel
     {
         [PrimaryKey("id", false)]
         public long Id { get; set; }
@@ -14,35 +15,35 @@ namespace GameKeyStore.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; }
 
-        [Column("key")]
-        public string? Key { get; set; }
+        [Column("order_id")]
+        public long? OrderId { get; set; }
+
+        [Column("user_id")]
+        public long? UserId { get; set; }
 
         [Column("game_id")]
         public long? GameId { get; set; }
 
-        [Column("price")]
-        public float? Price { get; set; }
-
-        [Column("key_type")]
-        public string? KeyType { get; set; }
+        [Column("game_key_id")]
+        public long? GameKeyId { get; set; }
 
         // Convert to DTO for API responses
-        public GameKeyDto ToDto()
+        public SubOrderDto ToDto()
         {
-            return new GameKeyDto
+            return new SubOrderDto
             {
                 Id = this.Id,
                 CreatedAt = this.CreatedAt,
-                Key = this.Key,
+                OrderId = this.OrderId,
+                UserId = this.UserId,
                 GameId = this.GameId,
-                Price = this.Price,
-                KeyType = this.KeyType
+                GameKeyId = this.GameKeyId
             };
         }
     }
 
     // DTO model - used for API responses (no BaseModel inheritance = no serialization issues)
-    public class GameKeyDto
+    public class SubOrderDto
     {
         [JsonPropertyName("id")]
         public long Id { get; set; }
@@ -50,23 +51,29 @@ namespace GameKeyStore.Models
         [JsonPropertyName("created_at")]
         public DateTime CreatedAt { get; set; }
 
-        [JsonPropertyName("key")]
-        public string? Key { get; set; }
+        [JsonPropertyName("order_id")]
+        public long? OrderId { get; set; }
+
+        [JsonPropertyName("user_id")]
+        public long? UserId { get; set; }
 
         [JsonPropertyName("game_id")]
         public long? GameId { get; set; }
 
-        [JsonPropertyName("price")]
-        public float? Price { get; set; }
-
-        [JsonPropertyName("key_type")]
-        public string? KeyType { get; set; }
+        [JsonPropertyName("game_key_id")]
+        public long? GameKeyId { get; set; }
     }
 
-    // Extended DTO with game information
-    public class GameKeyWithGameDto : GameKeyDto
+    // Extended DTO with game and game key information
+    public class SubOrderWithDetailsDto : SubOrderDto
     {
         [JsonPropertyName("game")]
         public GameDto? Game { get; set; }
+
+        [JsonPropertyName("game_key")]
+        public GameKeyDto? GameKey { get; set; }
+
+        [JsonPropertyName("price")]
+        public float? Price { get; set; }
     }
 }
