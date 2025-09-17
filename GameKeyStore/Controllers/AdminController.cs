@@ -3,6 +3,7 @@ using GameKeyStore.Services;
 using GameKeyStore.Constants;
 using GameKeyStore.Authorization;
 using GameKeyStore.Models;
+using System.Text.Json.Serialization;
 
 namespace GameKeyStore.Controllers
 {
@@ -163,7 +164,6 @@ namespace GameKeyStore.Controllers
                 var templatesData = templates.Select(t => new 
                 {
                     name = t.Name,
-                    description = t.Description,
                     permissions = t.Permissions.Select(p => new 
                     {
                         name = p.Name,
@@ -253,7 +253,6 @@ namespace GameKeyStore.Controllers
 
                 var createdRole = await _permissionManager.CreateCustomRoleAsync(
                     request.Name, 
-                    request.Description ?? "", 
                     request.Permissions);
                 
                 if (createdRole != null)
@@ -687,17 +686,31 @@ namespace GameKeyStore.Controllers
     // Games DTOs
     public class CreateGameRequest
     {
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+        
+        [JsonPropertyName("description")]
         public string? Description { get; set; }
+        
+        [JsonPropertyName("cover")]
         public string? Cover { get; set; }
+        
+        [JsonPropertyName("category_id")]
         public long? CategoryId { get; set; }
     }
 
     public class UpdateGameRequest
     {
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+        
+        [JsonPropertyName("description")]
         public string? Description { get; set; }
+        
+        [JsonPropertyName("cover")]
         public string? Cover { get; set; }
+        
+        [JsonPropertyName("category_id")]
         public long? CategoryId { get; set; }
     }
 

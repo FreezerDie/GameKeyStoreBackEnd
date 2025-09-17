@@ -72,6 +72,7 @@ namespace GameKeyStore.Controllers
                             Key = gameKey.Key,
                             GameId = gameKey.GameId,
                             Price = gameKey.Price,
+                            KeyType = gameKey.KeyType,
                             Game = gameKey.GameId.HasValue && games.ContainsKey(gameKey.GameId.Value)
                                 ? games[gameKey.GameId.Value].ToDto()
                                 : null

@@ -237,10 +237,44 @@ namespace GameKeyStore.Controllers
                 
                 if (insertedCartItem != null)
                 {
+                    // Fetch related game and game key data to return detailed response
+                    Game? game = null;
+                    GameKey? gameKey = null;
+                    
+                    if (insertedCartItem.GameId.HasValue)
+                    {
+                        var gameResponse = await client
+                            .From<Game>()
+                            .Where(x => x.Id == insertedCartItem.GameId.Value)
+                            .Get();
+                        game = gameResponse.Models?.FirstOrDefault();
+                    }
+                    
+                    if (insertedCartItem.GameKeyId.HasValue)
+                    {
+                        var gameKeyResponse = await client
+                            .From<GameKey>()
+                            .Where(x => x.Id == insertedCartItem.GameKeyId.Value)
+                            .Get();
+                        gameKey = gameKeyResponse.Models?.FirstOrDefault();
+                    }
+                    
+                    // Create detailed response with game and game key information
+                    var cartItemWithDetails = new CartItemWithDetailsDto
+                    {
+                        Id = insertedCartItem.Id,
+                        CreatedAt = insertedCartItem.CreatedAt,
+                        GameId = insertedCartItem.GameId,
+                        GameKeyId = insertedCartItem.GameKeyId,
+                        UserId = insertedCartItem.UserId,
+                        Game = game?.ToDto(),
+                        GameKey = gameKey?.ToDto()
+                    };
+                    
                     _logger.LogInformation("Cart item added successfully for user {UserId}", userId);
                     return Ok(new { 
                         message = "Item added to cart successfully", 
-                        data = insertedCartItem.ToDto()
+                        data = cartItemWithDetails
                     });
                 }
                 
@@ -448,8 +482,8 @@ namespace GameKeyStore.Controllers
                     gameKeys = (gameKeysResponse.Models ?? new List<GameKey>()).ToDictionary(gk => gk.Id);
                 }
 
-                // Calculate total price (convert from float to cents for storage)
-                long totalPriceCents = 0;
+                // Calculate total price
+                double totalPrice = 0;
                 foreach (var cartItem in cartItems)
                 {
                     if (cartItem.GameKeyId.HasValue && gameKeys.ContainsKey(cartItem.GameKeyId.Value))
@@ -457,7 +491,7 @@ namespace GameKeyStore.Controllers
                         var gameKey = gameKeys[cartItem.GameKeyId.Value];
                         if (gameKey.Price.HasValue)
                         {
-                            totalPriceCents += (long)(gameKey.Price.Value * 100); // Convert to cents
+                            totalPrice += gameKey.Price.Value;
                         }
                     }
                 }
@@ -465,9 +499,8 @@ namespace GameKeyStore.Controllers
                 // Create order
                 var newOrder = new Order
                 {
-                    TotalPrice = totalPriceCents,
+                    TotalPrice = totalPrice,
                     UserId = userId,
-                    Status = "pending",
                     Comment = createOrderDto?.Comment
                 };
 
@@ -554,13 +587,12 @@ namespace GameKeyStore.Controllers
                     Id = createdOrder.Id,
                     TotalPrice = createdOrder.TotalPrice,
                     UserId = createdOrder.UserId,
-                    Status = createdOrder.Status,
                     Comment = createdOrder.Comment,
                     SubOrders = subOrdersWithDetails
                 };
 
-                _logger.LogInformation("Order {OrderId} created successfully for user {UserId} with {ItemCount} items, total: ${Total}", 
-                    createdOrder.Id, userId, createdSubOrders.Count, totalPriceCents / 100.0);
+                _logger.LogInformation("Order {OrderId} created successfully for user {UserId} with {ItemCount} items, total: ${Total:F2}", 
+                    createdOrder.Id, userId, createdSubOrders.Count, totalPrice);
 
                 // Send order confirmation email
                 try
@@ -723,7 +755,6 @@ namespace GameKeyStore.Controllers
                     Id = order.Id,
                     TotalPrice = order.TotalPrice,
                     UserId = order.UserId,
-                    Status = order.Status,
                     Comment = order.Comment,
                     SubOrders = subOrdersWithDetails
                 };
@@ -744,11 +775,158 @@ namespace GameKeyStore.Controllers
         }
 
         /// <summary>
-        /// Get all orders for current user
+        /// Get all orders for current user with sub-orders, games, and game keys
         /// </summary>
-        /// <returns>List of orders for current user</returns>
+        /// <returns>List of orders with complete details for current user</returns>
         [HttpGet("api/orders")]
         public async Task<IActionResult> GetUserOrders()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
+
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+                
+                // Get orders for current user
+                var ordersResponse = await client
+                    .From<Order>()
+                    .Where(x => x.UserId == userId)
+                    .Order(x => x.Id, Supabase.Postgrest.Constants.Ordering.Descending)
+                    .Get();
+                
+                var orders = ordersResponse.Models ?? new List<Order>();
+
+                if (!orders.Any())
+                {
+                    return Ok(new { 
+                        message = "No orders found for user",
+                        count = 0,
+                        data = new List<OrderWithSubOrdersDto>()
+                    });
+                }
+
+                // Get all sub-orders for all user orders
+                var orderIds = orders.Select(o => o.Id).ToList();
+                var allSubOrdersResponse = await client
+                    .From<SubOrder>()
+                    .Where(x => x.OrderId != null)
+                    .Get();
+                    
+                var subOrders = (allSubOrdersResponse.Models ?? new List<SubOrder>())
+                    .Where(so => so.OrderId.HasValue && orderIds.Contains(so.OrderId.Value))
+                    .ToList();
+
+                // Get unique game IDs and game key IDs from sub-orders
+                var gameIds = subOrders
+                    .Where(so => so.GameId.HasValue)
+                    .Select(so => so.GameId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var gameKeyIds = subOrders
+                    .Where(so => so.GameKeyId.HasValue)
+                    .Select(so => so.GameKeyId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                // Fetch all games and game keys in batch
+                var games = new Dictionary<long, Game>();
+                var gameKeys = new Dictionary<long, GameKey>();
+
+                if (gameIds.Any())
+                {
+                    var allGamesResponse = await client
+                        .From<Game>()
+                        .Get();
+                    
+                    var filteredGames = (allGamesResponse.Models ?? new List<Game>())
+                        .Where(game => gameIds.Contains(game.Id));
+                    
+                    foreach (var game in filteredGames)
+                    {
+                        games[game.Id] = game;
+                    }
+                }
+
+                if (gameKeyIds.Any())
+                {
+                    var allGameKeysResponse = await client
+                        .From<GameKey>()
+                        .Get();
+                    
+                    var filteredGameKeys = (allGameKeysResponse.Models ?? new List<GameKey>())
+                        .Where(gameKey => gameKeyIds.Contains(gameKey.Id));
+                    
+                    foreach (var gameKey in filteredGameKeys)
+                    {
+                        gameKeys[gameKey.Id] = gameKey;
+                    }
+                }
+
+                // Group sub-orders by order ID (filter out null OrderIds)
+                var subOrdersByOrderId = subOrders
+                    .Where(so => so.OrderId.HasValue)
+                    .GroupBy(so => so.OrderId!.Value)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Build detailed order DTOs
+                var ordersWithDetails = orders.Select(order => {
+                    var orderSubOrders = subOrdersByOrderId.GetValueOrDefault(order.Id, new List<SubOrder>());
+                    
+                    var subOrdersWithDetails = orderSubOrders.Select(so => {
+                        var soDto = new SubOrderWithDetailsDto
+                        {
+                            Id = so.Id,
+                            CreatedAt = so.CreatedAt,
+                            OrderId = so.OrderId,
+                            UserId = so.UserId,
+                            GameId = so.GameId,
+                            GameKeyId = so.GameKeyId,
+                            Game = so.GameId.HasValue && games.ContainsKey(so.GameId.Value) ? games[so.GameId.Value].ToDto() : null,
+                            GameKey = so.GameKeyId.HasValue && gameKeys.ContainsKey(so.GameKeyId.Value) ? gameKeys[so.GameKeyId.Value].ToDto() : null,
+                            Price = so.GameKeyId.HasValue && gameKeys.ContainsKey(so.GameKeyId.Value) ? gameKeys[so.GameKeyId.Value].Price : null
+                        };
+                        return soDto;
+                    }).ToList();
+
+                    return new OrderWithSubOrdersDto
+                    {
+                        Id = order.Id,
+                        TotalPrice = order.TotalPrice,
+                        UserId = order.UserId,
+                        Comment = order.Comment,
+                        SubOrders = subOrdersWithDetails
+                    };
+                }).ToList();
+
+                return Ok(new { 
+                    message = "User orders fetched successfully",
+                    count = ordersWithDetails.Count,
+                    data = ordersWithDetails
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching user orders");
+                return StatusCode(500, new { 
+                    message = "Internal server error", 
+                    error = ex.Message 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get basic order information for current user (without sub-order details)
+        /// </summary>
+        /// <returns>List of basic order information for current user</returns>
+        [HttpGet("api/orders/basic")]
+        public async Task<IActionResult> GetUserOrdersBasic()
         {
             try
             {
@@ -773,14 +951,14 @@ namespace GameKeyStore.Controllers
                 var orderDtos = orders.Select(o => o.ToDto()).ToList();
 
                 return Ok(new { 
-                    message = "User orders fetched successfully",
+                    message = "User orders (basic) fetched successfully",
                     count = orderDtos.Count,
                     data = orderDtos
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching user orders");
+                _logger.LogError(ex, "Error fetching user orders (basic)");
                 return StatusCode(500, new { 
                     message = "Internal server error", 
                     error = ex.Message 

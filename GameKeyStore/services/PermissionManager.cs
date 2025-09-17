@@ -54,8 +54,7 @@ namespace GameKeyStore.Services
                 // Create the role
                 var newRole = new Role
                 {
-                    Name = template.Name,
-                    Description = template.Description
+                    Name = template.Name
                 };
 
                 var roleResult = await client
@@ -273,7 +272,7 @@ namespace GameKeyStore.Services
         /// <summary>
         /// Create a custom role with specific permissions
         /// </summary>
-        public async Task<Role?> CreateCustomRoleAsync(string roleName, string roleDescription, string[] permissionNames)
+        public async Task<Role?> CreateCustomRoleAsync(string roleName, string[] permissionNames)
         {
             try
             {
@@ -294,7 +293,7 @@ namespace GameKeyStore.Services
                     .ToArray();
 
                 // Create custom template
-                var customTemplate = new RoleTemplate(roleName, roleDescription, permissions);
+                var customTemplate = new RoleTemplate(roleName, permissions);
                 
                 return await CreateRoleFromTemplateAsync(customTemplate);
             }

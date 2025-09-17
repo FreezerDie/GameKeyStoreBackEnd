@@ -2,7 +2,7 @@
 DELETE FROM role_permissions WHERE role_id = 1;
 
 -- Insert all admin permissions
-INSERT INTO role_permissions (role_id, premission, granted_at) VALUES 
+INSERT INTO role_permissions (role_id, permission, granted_at) VALUES 
 (1, 'games.read', NOW()),
 (1, 'games.create', NOW()),
 (1, 'games.update', NOW()),
@@ -40,4 +40,4 @@ INSERT INTO role_permissions (role_id, premission, granted_at) VALUES
 SELECT COUNT(*) as inserted_permissions_count FROM role_permissions WHERE role_id = 1;
 
 -- Show all permissions for role 1
-SELECT role_id, premission, granted_at FROM role_permissions WHERE role_id = 1 ORDER BY premission;
+SELECT role_id, permission, granted_at FROM role_permissions WHERE role_id = 1 ORDER BY permission;

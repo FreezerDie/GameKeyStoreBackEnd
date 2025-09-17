@@ -47,14 +47,17 @@ namespace GameKeyStore.Services
                 // Hash password
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
 
-                // Create new user (role_id can be set later or default to null for basic user)
+                // Get the default "User" role for new registrations
+                long? defaultRoleId = await GetDefaultUserRoleIdAsync();
+                
+                // Create new user with default role
                 var newUser = new User
                 {
                     Email = registerDto.Email,
                     Name = registerDto.Name,
                     Username = registerDto.Username,
                     Password = hashedPassword,
-                    RoleId = null, // Can be set to default role ID if needed
+                    RoleId = defaultRoleId, // Assign default User role
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -205,6 +208,172 @@ namespace GameKeyStore.Services
             }
             catch (Exception)
             {
+                return null;
+            }
+        }
+
+        public async Task<User?> UpdateUserProfileAsync(long userId, UpdateProfileDto updateDto)
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Get current user
+                var currentUser = await GetUserByIdAsync(userId);
+                if (currentUser == null)
+                {
+                    return null;
+                }
+
+                // Check if email is being changed and if it's already taken
+                if (!string.IsNullOrWhiteSpace(updateDto.Email) && updateDto.Email != currentUser.Email)
+                {
+                    var existingUserByEmail = await client.From<User>()
+                        .Where(u => u.Email == updateDto.Email)
+                        .Get();
+
+                    if (existingUserByEmail.Models.Any())
+                    {
+                        throw new InvalidOperationException("Email is already taken by another user");
+                    }
+                }
+
+                // Check if username is being changed and if it's already taken
+                if (!string.IsNullOrWhiteSpace(updateDto.Username) && updateDto.Username != currentUser.Username)
+                {
+                    var existingUserByUsername = await client.From<User>()
+                        .Where(u => u.Username == updateDto.Username)
+                        .Get();
+
+                    if (existingUserByUsername.Models.Any())
+                    {
+                        throw new InvalidOperationException("Username is already taken by another user");
+                    }
+                }
+
+                // Update user fields
+                var updatedUser = new User
+                {
+                    Id = currentUser.Id,
+                    Email = !string.IsNullOrWhiteSpace(updateDto.Email) ? updateDto.Email : currentUser.Email,
+                    Name = !string.IsNullOrWhiteSpace(updateDto.Name) ? updateDto.Name : currentUser.Name,
+                    Username = !string.IsNullOrWhiteSpace(updateDto.Username) ? updateDto.Username : currentUser.Username,
+                    Password = currentUser.Password, // Keep existing password
+                    RoleId = currentUser.RoleId,
+                    IsStaff = currentUser.IsStaff,
+                    CreatedAt = currentUser.CreatedAt
+                };
+
+                var result = await client.From<User>()
+                    .Where(u => u.Id == userId)
+                    .Update(updatedUser);
+
+                return result.Models.FirstOrDefault();
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        public async Task<bool> ChangeUserPasswordAsync(long userId, ChangePasswordDto changePasswordDto)
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Get current user
+                var currentUser = await GetUserByIdAsync(userId);
+                if (currentUser == null)
+                {
+                    return false;
+                }
+
+                // Verify current password
+                if (!BCrypt.Net.BCrypt.Verify(changePasswordDto.CurrentPassword, currentUser.Password))
+                {
+                    throw new UnauthorizedAccessException("Current password is incorrect");
+                }
+
+                // Hash new password
+                var hashedNewPassword = BCrypt.Net.BCrypt.HashPassword(changePasswordDto.NewPassword);
+
+                // Update password
+                var updatedUser = new User
+                {
+                    Id = currentUser.Id,
+                    Email = currentUser.Email,
+                    Name = currentUser.Name,
+                    Username = currentUser.Username,
+                    Password = hashedNewPassword,
+                    RoleId = currentUser.RoleId,
+                    IsStaff = currentUser.IsStaff,
+                    CreatedAt = currentUser.CreatedAt
+                };
+
+                var result = await client.From<User>()
+                    .Where(u => u.Id == userId)
+                    .Update(updatedUser);
+
+                return result.Models.Any();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteUserAccountAsync(long userId)
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Verify user exists
+                var user = await GetUserByIdAsync(userId);
+                if (user == null)
+                {
+                    return false;
+                }
+
+                // Delete the user account
+                await client.From<User>()
+                    .Where(u => u.Id == userId)
+                    .Delete();
+
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get the default "User" role ID for new registrations
+        /// </summary>
+        private async Task<long?> GetDefaultUserRoleIdAsync()
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                // Look for a role named "User" (case insensitive)
+                var roleResponse = await client
+                    .From<Role>()
+                    .Where(r => r.Name.ToLower() == "user")
+                    .Get();
+
+                var userRole = roleResponse.Models?.FirstOrDefault();
+                return userRole?.Id;
+            }
+            catch (Exception)
+            {
+                // If we can't get the default role, return null (user will have no role)
                 return null;
             }
         }

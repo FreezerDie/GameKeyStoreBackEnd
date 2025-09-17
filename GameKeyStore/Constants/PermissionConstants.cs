@@ -193,7 +193,7 @@ namespace GameKeyStore.Constants
         /// </summary>
         public static class RoleTemplates
         {
-            public static readonly RoleTemplate SuperAdmin = new("Super Admin", "Full system access", new[]
+            public static readonly RoleTemplate SuperAdmin = new("Super Admin", new[]
             {
                 Permissions.SystemAdmin,
                 Permissions.UsersAdmin,
@@ -206,7 +206,7 @@ namespace GameKeyStore.Constants
                 Permissions.ReportsAdmin
             });
 
-            public static readonly RoleTemplate Admin = new("Admin", "Administrative access", new[]
+            public static readonly RoleTemplate Admin = new("Admin", new[]
             {
                 Permissions.UsersRead,
                 Permissions.UsersCreate,
@@ -218,7 +218,7 @@ namespace GameKeyStore.Constants
                 Permissions.ReportsRead
             });
 
-            public static readonly RoleTemplate Manager = new("Manager", "Content and inventory management", new[]
+            public static readonly RoleTemplate Manager = new("Manager", new[]
             {
                 Permissions.UsersRead,
                 Permissions.GamesRead,
@@ -234,7 +234,7 @@ namespace GameKeyStore.Constants
                 Permissions.OrdersUpdate
             });
 
-            public static readonly RoleTemplate Staff = new("Staff", "Basic staff operations", new[]
+            public static readonly RoleTemplate Staff = new("Staff", new[]
             {
                 Permissions.GamesRead,
                 Permissions.GameKeysRead,
@@ -242,7 +242,7 @@ namespace GameKeyStore.Constants
                 Permissions.OrdersRead
             });
 
-            public static readonly RoleTemplate User = new("User", "Basic user access", new[]
+            public static readonly RoleTemplate User = new("User", new[]
             {
                 Permissions.GamesRead,
                 Permissions.CategoriesRead,
@@ -289,5 +289,5 @@ namespace GameKeyStore.Constants
     /// <summary>
     /// Represents a role template with predefined permissions
     /// </summary>
-    public record RoleTemplate(string Name, string Description, PermissionDefinition[] Permissions);
+    public record RoleTemplate(string Name, PermissionDefinition[] Permissions);
 }

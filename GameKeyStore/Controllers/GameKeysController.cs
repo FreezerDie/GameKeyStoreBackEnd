@@ -74,6 +74,8 @@ namespace GameKeyStore.Controllers
                             CreatedAt = gameKey.CreatedAt,
                             Key = gameKey.Key,
                             GameId = gameKey.GameId,
+                            Price = gameKey.Price,
+                            KeyType = gameKey.KeyType,
                             Game = gameKey.GameId.HasValue && games.ContainsKey(gameKey.GameId.Value)
                                 ? games[gameKey.GameId.Value].ToDto()
                                 : null
@@ -175,6 +177,8 @@ namespace GameKeyStore.Controllers
                             CreatedAt = gameKey.CreatedAt,
                             Key = gameKey.Key,
                             GameId = gameKey.GameId,
+                            Price = gameKey.Price,
+                            KeyType = gameKey.KeyType,
                             Game = game?.ToDto()
                         };
                         
@@ -248,6 +252,8 @@ namespace GameKeyStore.Controllers
                             CreatedAt = gameKey.CreatedAt,
                             Key = gameKey.Key,
                             GameId = gameKey.GameId,
+                            Price = gameKey.Price,
+                            KeyType = gameKey.KeyType,
                             Game = game?.ToDto()
                         };
                         return gameKeyWithGame;

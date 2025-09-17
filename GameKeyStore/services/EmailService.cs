@@ -97,7 +97,7 @@ namespace GameKeyStore.Services
 
         private string CreateOrderConfirmationTemplate(string customerName, OrderWithSubOrdersDto order)
         {
-            var totalAmount = (order.TotalPrice / 100.0).ToString("F2");
+            var totalAmount = order.TotalPrice.ToString("F2");
             var orderDate = DateTime.UtcNow.ToString("MMMM dd, yyyy");
             
             var itemsHtml = new StringBuilder();
@@ -158,10 +158,6 @@ namespace GameKeyStore.Services
                             <div style=""display: flex; justify-content: space-between; margin-bottom: 10px;"">
                                 <span style=""font-weight: 600; color: #333;"">Order Date:</span>
                                 <span style=""color: #666;"">{orderDate}</span>
-                            </div>
-                            <div style=""display: flex; justify-content: space-between;"">
-                                <span style=""font-weight: 600; color: #333;"">Status:</span>
-                                <span style=""color: #28a745; font-weight: 600; text-transform: capitalize;"">{order.Status}</span>
                             </div>
                         </div>
 

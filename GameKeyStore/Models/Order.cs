@@ -13,13 +13,11 @@ namespace GameKeyStore.Models
         public long Id { get; set; }
 
         [Column("total_price")]
-        public long TotalPrice { get; set; }
+        public double TotalPrice { get; set; }
 
         [Column("user_id")]
         public long? UserId { get; set; }
 
-        [Column("status")]
-        public string? Status { get; set; }
 
         [Column("comment")]
         public string? Comment { get; set; }
@@ -32,7 +30,6 @@ namespace GameKeyStore.Models
                 Id = this.Id,
                 TotalPrice = this.TotalPrice,
                 UserId = this.UserId,
-                Status = this.Status,
                 Comment = this.Comment
             };
         }
@@ -45,13 +42,11 @@ namespace GameKeyStore.Models
         public long Id { get; set; }
 
         [JsonPropertyName("total_price")]
-        public long TotalPrice { get; set; }
+        public double TotalPrice { get; set; }
 
         [JsonPropertyName("user_id")]
         public long? UserId { get; set; }
 
-        [JsonPropertyName("status")]
-        public string? Status { get; set; }
 
         [JsonPropertyName("comment")]
         public string? Comment { get; set; }

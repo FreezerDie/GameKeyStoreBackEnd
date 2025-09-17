@@ -62,4 +62,35 @@ namespace GameKeyStore.Models
         [JsonPropertyName("role")]
         public RoleDto? Role { get; set; }
     }
+
+    // DTO for updating user profile
+    public class UpdateProfileDto
+    {
+        [EmailAddress]
+        public string? Email { get; set; }
+
+        [MinLength(2)]
+        public string? Name { get; set; }
+
+        [MinLength(3)]
+        public string? Username { get; set; }
+    }
+
+    // DTO for changing password
+    public class ChangePasswordDto
+    {
+        [Required]
+        [JsonPropertyName("current_password")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required]
+        [MinLength(6)]
+        [JsonPropertyName("new_password")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required]
+        [JsonPropertyName("confirm_password")]
+        [Compare("NewPassword", ErrorMessage = "New password and confirmation do not match")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
 }

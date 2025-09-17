@@ -14,17 +14,13 @@ namespace GameKeyStore.Models
         [Column("name")]
         public string Name { get; set; } = string.Empty;
 
-        [Column("description")]
-        public string? Description { get; set; }
-
         // Convert to DTO for API responses
         public RoleDto ToDto()
         {
             return new RoleDto
             {
                 Id = this.Id,
-                Name = this.Name,
-                Description = this.Description
+                Name = this.Name
             };
         }
     }
@@ -37,8 +33,5 @@ namespace GameKeyStore.Models
 
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
-
-        [JsonPropertyName("description")]
-        public string? Description { get; set; }
     }
 }

@@ -112,6 +112,26 @@ builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
+// Initialize default roles and permissions on startup
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var permissionManager = services.GetRequiredService<PermissionManager>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        
+        logger.LogInformation("Initializing default roles and permissions...");
+        await permissionManager.SeedRolesAsync();
+        logger.LogInformation("Default roles and permissions initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Failed to initialize default roles and permissions. The application will continue, but user registration may not work properly.");
+    }
+}
+
 // Note: Supabase will be initialized on first use to prevent startup crashes
 
 // Configure the HTTP request pipeline.

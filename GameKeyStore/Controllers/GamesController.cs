@@ -21,10 +21,10 @@ namespace GameKeyStore.Controllers
         /// </summary>
         /// <param name="categoryId">Optional category ID to filter games</param>
         /// <param name="includeCategory">Whether to include category information in response</param>
+        /// <param name="includeGameKeys">Whether to include game keys information in response</param>
         /// <returns>List of games</returns>
         [HttpGet]
-        [RequirePermission("games", "read")]
-        public async Task<IActionResult> GetGames([FromQuery] long? categoryId = null, [FromQuery] bool includeCategory = false)
+        public async Task<IActionResult> GetGames([FromQuery] long? categoryId = null, [FromQuery] bool includeCategory = false, [FromQuery] bool includeGameKeys = false)
         {
             try
             {
@@ -47,27 +47,52 @@ namespace GameKeyStore.Controllers
                 
                 var games = gamesResponse.Models ?? new List<Game>();
                 
+                // Prepare data based on requested includes
+                Dictionary<long, Category>? categories = null;
+                Dictionary<long, List<GameKey>>? gameKeysByGameId = null;
+                
+                // Fetch categories if requested
                 if (includeCategory && games.Any())
                 {
-                    // Get all unique category IDs from the games
                     var categoryIds = games
                         .Where(g => g.CategoryId.HasValue)
                         .Select(g => g.CategoryId!.Value)
                         .Distinct()
                         .ToList();
                     
-                    // Fetch categories in batch
                     var categoriesResponse = await client
                         .From<Category>()
                         .Get();
                     
                     var allCategories = categoriesResponse.Models ?? new List<Category>();
-                    var categories = allCategories.Where(cat => categoryIds.Contains(cat.Id)).ToDictionary(cat => cat.Id);
+                    categories = allCategories.Where(cat => categoryIds.Contains(cat.Id)).ToDictionary(cat => cat.Id);
+                }
+                
+                // Fetch game keys if requested
+                if (includeGameKeys && games.Any())
+                {
+                    var gameIds = games.Select(g => g.Id).ToList();
+                    var gameKeysResponse = await client
+                        .From<GameKey>()
+                        .Get();
                     
-                    // Create extended DTOs with category information
-                    var gamesWithCategory = games.Select(game => 
+                    var allGameKeys = gameKeysResponse.Models ?? new List<GameKey>();
+                    gameKeysByGameId = allGameKeys
+                        .Where(gk => gameIds.Contains(gk.GameId ?? 0))
+                        .GroupBy(gk => gk.GameId ?? 0)
+                        .ToDictionary(g => g.Key, g => g.ToList());
+                }
+                
+                // Create appropriate DTOs based on requested includes
+                if (includeCategory && includeGameKeys)
+                {
+                    var gamesWithCategoryAndKeys = games.Select(game => 
                     {
-                        var gameWithCategory = new GameWithCategoryDto
+                        var gameKeys = gameKeysByGameId?.ContainsKey(game.Id) == true 
+                            ? gameKeysByGameId[game.Id].Select(gk => gk.ToDto()).ToList() 
+                            : new List<GameKeyDto>();
+                            
+                        return new GameWithCategoryAndKeysDto
                         {
                             Id = game.Id,
                             CreatedAt = game.CreatedAt,
@@ -75,20 +100,76 @@ namespace GameKeyStore.Controllers
                             Description = game.Description,
                             Cover = game.Cover,
                             CategoryId = game.CategoryId,
-                            Category = game.CategoryId.HasValue && categories.ContainsKey(game.CategoryId.Value)
+                            Category = game.CategoryId.HasValue && categories?.ContainsKey(game.CategoryId.Value) == true
                                 ? categories[game.CategoryId.Value].ToDto()
-                                : null
+                                : null,
+                            GameKeys = gameKeys
                         };
-                        return gameWithCategory;
                     }).ToList();
                     
                     return Ok(new { 
                         message = categoryId.HasValue 
-                            ? $"Games filtered by category {categoryId} fetched from database" 
+                            ? $"Games filtered by category {categoryId} with category and keys information fetched from database" 
+                            : "Games with category and keys information fetched from database",
+                        count = gamesWithCategoryAndKeys.Count,
+                        categoryFilter = categoryId,
+                        data = gamesWithCategoryAndKeys
+                    });
+                }
+                else if (includeCategory)
+                {
+                    var gamesWithCategory = games.Select(game => 
+                    {
+                        return new GameWithCategoryDto
+                        {
+                            Id = game.Id,
+                            CreatedAt = game.CreatedAt,
+                            Name = game.Name,
+                            Description = game.Description,
+                            Cover = game.Cover,
+                            CategoryId = game.CategoryId,
+                            Category = game.CategoryId.HasValue && categories?.ContainsKey(game.CategoryId.Value) == true
+                                ? categories[game.CategoryId.Value].ToDto()
+                                : null
+                        };
+                    }).ToList();
+                    
+                    return Ok(new { 
+                        message = categoryId.HasValue 
+                            ? $"Games filtered by category {categoryId} with category information fetched from database" 
                             : "Games with category information fetched from database",
                         count = gamesWithCategory.Count,
                         categoryFilter = categoryId,
                         data = gamesWithCategory
+                    });
+                }
+                else if (includeGameKeys)
+                {
+                    var gamesWithKeys = games.Select(game => 
+                    {
+                        var gameKeys = gameKeysByGameId?.ContainsKey(game.Id) == true 
+                            ? gameKeysByGameId[game.Id].Select(gk => gk.ToDto()).ToList() 
+                            : new List<GameKeyDto>();
+                            
+                        return new GameWithKeysDto
+                        {
+                            Id = game.Id,
+                            CreatedAt = game.CreatedAt,
+                            Name = game.Name,
+                            Description = game.Description,
+                            Cover = game.Cover,
+                            CategoryId = game.CategoryId,
+                            GameKeys = gameKeys
+                        };
+                    }).ToList();
+                    
+                    return Ok(new { 
+                        message = categoryId.HasValue 
+                            ? $"Games filtered by category {categoryId} with keys information fetched from database" 
+                            : "Games with keys information fetched from database",
+                        count = gamesWithKeys.Count,
+                        categoryFilter = categoryId,
+                        data = gamesWithKeys
                     });
                 }
                 else
@@ -161,13 +242,48 @@ namespace GameKeyStore.Controllers
                     mockGames = mockGames.Where(g => g.CategoryId == categoryId.Value).ToList();
                 }
                 
-                return Ok(new { 
-                    message = "Using fallback data - database connection failed", 
-                    error = ex.Message,
-                    count = mockGames.Count,
-                    categoryFilter = categoryId,
-                    data = mockGames
-                });
+                // Create mock game keys for demo purposes
+                var mockGameKeys = new Dictionary<long, List<GameKeyDto>>
+                {
+                    {1, new List<GameKeyDto> { new GameKeyDto { Id = 1, GameId = 1, Price = 59.99f, KeyType = "Steam", Key = "XXXX-XXXX-XXXX", CreatedAt = DateTime.Now } }},
+                    {2, new List<GameKeyDto> { new GameKeyDto { Id = 2, GameId = 2, Price = 39.99f, KeyType = "Steam", Key = "XXXX-XXXX-XXXX", CreatedAt = DateTime.Now } }},
+                    {3, new List<GameKeyDto> { new GameKeyDto { Id = 3, GameId = 3, Price = 49.99f, KeyType = "Steam", Key = "XXXX-XXXX-XXXX", CreatedAt = DateTime.Now } }},
+                    {4, new List<GameKeyDto> { new GameKeyDto { Id = 4, GameId = 4, Price = 69.99f, KeyType = "Origin", Key = "XXXX-XXXX-XXXX", CreatedAt = DateTime.Now } }},
+                    {5, new List<GameKeyDto> { new GameKeyDto { Id = 5, GameId = 5, Price = 44.99f, KeyType = "Uplay", Key = "XXXX-XXXX-XXXX", CreatedAt = DateTime.Now } }}
+                };
+                
+                // Return appropriate mock data based on requested includes
+                if (includeGameKeys && !includeCategory)
+                {
+                    var mockGamesWithKeys = mockGames.Select(game => new GameWithKeysDto
+                    {
+                        Id = game.Id,
+                        CreatedAt = game.CreatedAt,
+                        Name = game.Name,
+                        Description = game.Description,
+                        Cover = game.Cover,
+                        CategoryId = game.CategoryId,
+                        GameKeys = mockGameKeys.ContainsKey(game.Id) ? mockGameKeys[game.Id] : new List<GameKeyDto>()
+                    }).ToList();
+                    
+                    return Ok(new { 
+                        message = "Using fallback data with game keys - database connection failed", 
+                        error = ex.Message,
+                        count = mockGamesWithKeys.Count,
+                        categoryFilter = categoryId,
+                        data = mockGamesWithKeys
+                    });
+                }
+                else
+                {
+                    return Ok(new { 
+                        message = "Using fallback data - database connection failed", 
+                        error = ex.Message,
+                        count = mockGames.Count,
+                        categoryFilter = categoryId,
+                        data = mockGames
+                    });
+                }
             }
         }
 
@@ -179,7 +295,6 @@ namespace GameKeyStore.Controllers
         /// <param name="includeGameKeys">Whether to include game keys information in response</param>
         /// <returns>Game details</returns>
         [HttpGet("{id}")]
-        [RequireGamesRead]
         public async Task<IActionResult> GetGame(long id, [FromQuery] bool includeCategory = false, [FromQuery] bool includeGameKeys = true)
         {
             try
@@ -338,7 +453,6 @@ namespace GameKeyStore.Controllers
         /// </summary>
         /// <returns>Games grouped by categories</returns>
         [HttpGet("by-category")]
-        [RequireGamesRead]
         public async Task<IActionResult> GetGamesByCategory()
         {
             try

@@ -381,5 +381,127 @@ namespace GameKeyStore.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Update user profile information (username, email, name)
+        /// </summary>
+        [HttpPut("profile")]
+        [Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
+
+                var updatedUser = await _authService.UpdateUserProfileAsync(userId, updateDto);
+                
+                if (updatedUser == null)
+                {
+                    return BadRequest(new { message = "Failed to update profile" });
+                }
+
+                _logger.LogInformation("User profile updated successfully: {UserId}", userId);
+                return Ok(new { 
+                    message = "Profile updated successfully", 
+                    data = updatedUser.ToDto() 
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Profile update validation error: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating user profile");
+                return StatusCode(500, new { message = "Internal server error during profile update" });
+            }
+        }
+
+        /// <summary>
+        /// Change user password
+        /// </summary>
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto changePasswordDto)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
+
+                var result = await _authService.ChangeUserPasswordAsync(userId, changePasswordDto);
+                
+                if (!result)
+                {
+                    return BadRequest(new { message = "Failed to change password" });
+                }
+
+                _logger.LogInformation("User password changed successfully: {UserId}", userId);
+                return Ok(new { message = "Password changed successfully" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning("Password change unauthorized: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing user password");
+                return StatusCode(500, new { message = "Internal server error during password change" });
+            }
+        }
+
+        /// <summary>
+        /// Delete user account
+        /// </summary>
+        [HttpDelete("account")]
+        [Authorize]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
+
+                var result = await _authService.DeleteUserAccountAsync(userId);
+                
+                if (!result)
+                {
+                    return BadRequest(new { message = "Failed to delete account" });
+                }
+
+                _logger.LogInformation("User account deleted successfully: {UserId}", userId);
+                return Ok(new { message = "Account deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting user account");
+                return StatusCode(500, new { message = "Internal server error during account deletion" });
+            }
+        }
     }
 }
