@@ -341,7 +341,6 @@ namespace GameKeyStore.Controllers
                 var templatesWithDetails = roleTemplates.Select(template => new
                 {
                     name = template.Name,
-                    description = template.Description,
                     permissions = template.Permissions.Select(p => new
                     {
                         name = p.Name,

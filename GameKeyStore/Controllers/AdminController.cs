@@ -125,6 +125,41 @@ namespace GameKeyStore.Controllers
         }
 
         /// <summary>
+        /// Get all existing roles from database
+        /// </summary>
+        [HttpGet("roles")]
+        [RequireRolesRead]
+        public async Task<IActionResult> GetAllRoles()
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+                
+                var rolesResponse = await client
+                    .From<Role>()
+                    .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                    .Get();
+
+                var roles = rolesResponse.Models ?? new List<Role>();
+                
+                return Ok(new { 
+                    message = "Roles retrieved from database",
+                    count = roles.Count,
+                    data = roles.Select(r => r.ToDto()).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting roles");
+                return StatusCode(500, new { 
+                    message = "Internal server error",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
         /// Get all available permission definitions (from constants)
         /// </summary>
         [HttpGet("available-permissions")]

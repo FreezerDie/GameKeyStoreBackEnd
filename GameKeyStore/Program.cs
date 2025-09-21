@@ -71,7 +71,67 @@ builder.Services.AddAuthentication(x =>
         ValidateAudience = true,
         ValidAudience = "GameKeyStore",
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero,
+        // Map custom claim names to standard ASP.NET Core claim types
+        NameClaimType = "name",
+        RoleClaimType = "is_staff" // Note: This maps is_staff to role claims if needed
+    };
+    // Clear default claim mappings and add custom ones
+    x.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            // Ensure custom claims are preserved in the identity
+            var identity = context.Principal?.Identity as System.Security.Claims.ClaimsIdentity;
+            if (identity != null)
+            {
+                Console.WriteLine("Token validated. Original claims:");
+                foreach (var claim in identity.Claims)
+                {
+                    Console.WriteLine($"  {claim.Type}: {claim.Value}");
+                }
+
+                // Map custom claims to standard types
+                var idClaim = identity.FindFirst("id");
+                if (idClaim != null)
+                {
+                    identity.AddClaim(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, idClaim.Value));
+                    Console.WriteLine("Added NameIdentifier claim: " + idClaim.Value);
+                }
+
+                var emailClaim = identity.FindFirst("email");
+                if (emailClaim != null)
+                {
+                    identity.AddClaim(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, emailClaim.Value));
+                    Console.WriteLine("Added Email claim: " + emailClaim.Value);
+                }
+
+                var nameClaim = identity.FindFirst("name");
+                if (nameClaim != null)
+                {
+                    identity.AddClaim(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, nameClaim.Value));
+                    Console.WriteLine("Added Name claim: " + nameClaim.Value);
+                }
+
+                var roleIdClaim = identity.FindFirst("role_id");
+                if (roleIdClaim != null)
+                {
+                    Console.WriteLine("Found role_id claim: " + roleIdClaim.Value);
+                }
+
+                Console.WriteLine("Final claims after mapping:");
+                foreach (var claim in identity.Claims)
+                {
+                    Console.WriteLine($"  {claim.Type}: {claim.Value}");
+                }
+            }
+            return Task.CompletedTask;
+        },
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine("JWT Authentication failed: " + context.Exception.Message);
+            return Task.CompletedTask;
+        }
     };
 });
 

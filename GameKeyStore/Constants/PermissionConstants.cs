@@ -206,7 +206,7 @@ namespace GameKeyStore.Constants
                 Permissions.ReportsAdmin
             });
 
-            public static readonly RoleTemplate Admin = new("Admin", new[]
+            public static readonly RoleTemplate Admin = new("admin", new[]
             {
                 Permissions.UsersRead,
                 Permissions.UsersCreate,
@@ -242,7 +242,7 @@ namespace GameKeyStore.Constants
                 Permissions.OrdersRead
             });
 
-            public static readonly RoleTemplate User = new("User", new[]
+            public static readonly RoleTemplate User = new("user", new[]
             {
                 Permissions.GamesRead,
                 Permissions.CategoriesRead,
@@ -258,11 +258,8 @@ namespace GameKeyStore.Constants
             {
                 return new List<RoleTemplate>
                 {
-                    SuperAdmin,
-                    Admin,
-                    Manager,
-                    Staff,
-                    User
+                    Admin,  // Uses existing "admin" role (ID 1)
+                    User    // Uses existing "user" role (ID 2)
                 };
             }
         }

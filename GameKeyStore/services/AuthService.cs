@@ -9,6 +9,14 @@ namespace GameKeyStore.Services
 {
     public class AuthService
     {
+        // JWT Claim name constants
+        public const string ClaimNameId = "id";
+        public const string ClaimNameEmail = "email";
+        public const string ClaimNameName = "name";
+        public const string ClaimNameUsername = "username";
+        public const string ClaimNameIsStaff = "is_staff";
+        public const string ClaimNameRoleId = "role_id";
+
         private readonly SupabaseService _supabaseService;
         private readonly IConfiguration _configuration;
 
@@ -133,7 +141,7 @@ namespace GameKeyStore.Services
             };
         }
 
-        private async Task<string> GenerateJwtTokenAsync(User user)
+        private Task<string> GenerateJwtTokenAsync(User user)
         {
             var key = Environment.GetEnvironmentVariable("JWT_SECRET") ?? "your-super-secret-jwt-key-that-should-be-changed-in-production";
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
@@ -141,41 +149,14 @@ namespace GameKeyStore.Services
 
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Name, user.Name),
-                new Claim("username", user.Username),
-                new Claim("is_staff", (user.IsStaff ?? false).ToString().ToLower()),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+                new Claim(ClaimNameId, user.Id.ToString()),
+                new Claim(ClaimNameEmail, user.Email),
+                new Claim(ClaimNameName, user.Name),
+                new Claim(ClaimNameUsername, user.Username),
+                new Claim(ClaimNameIsStaff, (user.IsStaff ?? false).ToString().ToLower()),
+                new Claim(ClaimNameRoleId, user.RoleId?.ToString() ?? ""),
             };
 
-            // Add role claim if user has a role (but NO permissions in JWT)
-            if (user.RoleId.HasValue)
-            {
-                try
-                {
-                    // Get user's role name for the token
-                    await _supabaseService.InitializeAsync();
-                    var client = _supabaseService.GetClient();
-                    
-                    var roleResponse = await client
-                        .From<Role>()
-                        .Where(x => x.Id == user.RoleId.Value)
-                        .Get();
-
-                    var role = roleResponse.Models?.FirstOrDefault();
-                    if (role != null)
-                    {
-                        claims.Add(new Claim(ClaimTypes.Role, role.Name));
-                        claims.Add(new Claim("role_id", user.RoleId.Value.ToString()));
-                    }
-                }
-                catch (Exception)
-                {
-                    // If role lookup fails, continue without role claims
-                }
-            }
 
             var token = new JwtSecurityToken(
                 issuer: "GameKeyStore",
@@ -185,7 +166,7 @@ namespace GameKeyStore.Services
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            return Task.FromResult(new JwtSecurityTokenHandler().WriteToken(token));
         }
 
         private string GenerateRefreshToken()
@@ -362,13 +343,28 @@ namespace GameKeyStore.Services
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
 
-                // Look for a role named "User" (case insensitive)
+                // First try direct match with lowercase "user"
                 var roleResponse = await client
                     .From<Role>()
-                    .Where(r => r.Name.ToLower() == "user")
+                    .Where(r => r.Name == "user")
                     .Get();
 
                 var userRole = roleResponse.Models?.FirstOrDefault();
+                
+                if (userRole != null)
+                {
+                    return userRole.Id;
+                }
+
+                // Fallback: Get all roles and find case-insensitive match
+                var allRolesResponse = await client
+                    .From<Role>()
+                    .Get();
+
+                var allRoles = allRolesResponse.Models ?? new List<Role>();
+                userRole = allRoles.FirstOrDefault(r => 
+                    string.Equals(r.Name, "user", StringComparison.OrdinalIgnoreCase));
+
                 return userRole?.Id;
             }
             catch (Exception)

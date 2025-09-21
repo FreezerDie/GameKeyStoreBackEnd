@@ -5,6 +5,9 @@ using GameKeyStore.Services;
 using GameKeyStore.Authorization;
 using System.Security.Claims;
 
+// Use named parameters instead of ClaimTypes
+using static GameKeyStore.Services.AuthService;
+
 namespace GameKeyStore.Controllers
 {
     [ApiController]
@@ -91,7 +94,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -121,18 +124,20 @@ namespace GameKeyStore.Controllers
         [Authorize]
         public IActionResult ProtectedEndpoint()
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var email = User.FindFirst(ClaimTypes.Email)?.Value;
-            var username = User.FindFirst("username")?.Value;
-            var isStaff = User.FindFirst("is_staff")?.Value;
-            
-            return Ok(new 
-            { 
+            var userId = User.FindFirst(ClaimNameId)?.Value;
+            var email = User.FindFirst(ClaimNameEmail)?.Value;
+            var username = User.FindFirst(ClaimNameUsername)?.Value;
+            var isStaff = User.FindFirst(ClaimNameIsStaff)?.Value;
+            var roleId = User.FindFirst(ClaimNameRoleId)?.Value;
+
+            return Ok(new
+            {
                 message = "This is a protected endpoint",
                 userId = userId,
                 email = email,
                 username = username,
                 isStaff = isStaff,
+                roleId = roleId,
                 timestamp = DateTime.UtcNow
             });
         }
@@ -146,7 +151,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -213,6 +218,66 @@ namespace GameKeyStore.Controllers
                     stackTrace = ex.StackTrace
                 });
             }
+        }
+
+        /// <summary>
+        /// Test if user has specific permission
+        /// </summary>
+        [HttpGet("test-permission/{resource}/{action}")]
+        [Authorize]
+        public async Task<IActionResult> TestPermission(string resource, string action)
+        {
+            try
+            {
+                var permissionService = HttpContext.RequestServices.GetRequiredService<PermissionService>();
+                var hasPermission = await permissionService.UserHasPermissionAsync(User, resource, action);
+
+                return Ok(new {
+                    resource = resource,
+                    action = action,
+                    hasPermission = hasPermission,
+                    userId = User.FindFirst(ClaimNameId)?.Value,
+                    roleId = User.FindFirst(ClaimNameRoleId)?.Value
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Debug JWT token claims
+        /// </summary>
+        [HttpGet("debug-token")]
+        [Authorize]
+        public IActionResult DebugToken()
+        {
+            var claims = User.Claims.Select(c => new {
+                Type = c.Type,
+                Value = c.Value,
+                ValueType = c.ValueType
+            }).ToList();
+
+            return Ok(new {
+                IsAuthenticated = User.Identity?.IsAuthenticated ?? false,
+                AuthenticationType = User.Identity?.AuthenticationType,
+                Name = User.Identity?.Name,
+                ClaimsCount = claims.Count,
+                Claims = claims,
+                HasIdClaim = User.FindFirst(ClaimNameId) != null,
+                HasEmailClaim = User.FindFirst(ClaimNameEmail) != null,
+                HasNameClaim = User.FindFirst(ClaimNameName) != null,
+                HasUsernameClaim = User.FindFirst(ClaimNameUsername) != null,
+                HasIsStaffClaim = User.FindFirst(ClaimNameIsStaff) != null,
+                HasRoleIdClaim = User.FindFirst(ClaimNameRoleId) != null,
+                IdClaimValue = User.FindFirst(ClaimNameId)?.Value,
+                EmailClaimValue = User.FindFirst(ClaimNameEmail)?.Value,
+                NameClaimValue = User.FindFirst(ClaimNameName)?.Value,
+                UsernameClaimValue = User.FindFirst(ClaimNameUsername)?.Value,
+                IsStaffClaimValue = User.FindFirst(ClaimNameIsStaff)?.Value,
+                RoleIdClaimValue = User.FindFirst(ClaimNameRoleId)?.Value
+            });
         }
 
         /// <summary>
@@ -396,7 +461,7 @@ namespace GameKeyStore.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -442,7 +507,7 @@ namespace GameKeyStore.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -480,7 +545,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {

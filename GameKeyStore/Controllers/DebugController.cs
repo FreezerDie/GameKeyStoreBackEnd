@@ -11,12 +11,14 @@ namespace GameKeyStore.Controllers
     {
         private readonly SupabaseService _supabaseService;
         private readonly PermissionService _permissionService;
+        private readonly PermissionManager _permissionManager;
         private readonly ILogger<DebugController> _logger;
 
-        public DebugController(SupabaseService supabaseService, PermissionService permissionService, ILogger<DebugController> logger)
+        public DebugController(SupabaseService supabaseService, PermissionService permissionService, PermissionManager permissionManager, ILogger<DebugController> logger)
         {
             _supabaseService = supabaseService;
             _permissionService = permissionService;
+            _permissionManager = permissionManager;
             _logger = logger;
         }
 
@@ -508,6 +510,113 @@ namespace GameKeyStore.Controllers
             catch (Exception ex)
             {
                 return new { HasPermission = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Check what roles exist in the database (no auth required for debugging)
+        /// </summary>
+        [HttpGet("roles")]
+        public async Task<IActionResult> CheckRoles()
+        {
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                var client = _supabaseService.GetClient();
+
+                var rolesResponse = await client
+                    .From<Role>()
+                    .Order(x => x.Name, Supabase.Postgrest.Constants.Ordering.Ascending)
+                    .Get();
+
+                var roles = rolesResponse.Models ?? new List<Role>();
+                
+                return Ok(new { 
+                    message = "Roles retrieved from database",
+                    count = roles.Count,
+                    roles = roles.Select(r => new { r.Id, r.Name }).ToList(),
+                    hasUserRole = roles.Any(r => r.Name.Equals("user", StringComparison.OrdinalIgnoreCase)),
+                    hasAdminRole = roles.Any(r => r.Name.Equals("admin", StringComparison.OrdinalIgnoreCase)),
+                    timestamp = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    message = "Failed to check roles",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Seed roles without authentication (for debugging)
+        /// </summary>
+        [HttpPost("seed-roles")]
+        public async Task<IActionResult> SeedRoles()
+        {
+            try
+            {
+                var success = await _permissionManager.SeedRolesAsync();
+                
+                if (success)
+                {
+                    return Ok(new { 
+                        message = "Roles seeded successfully",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new { 
+                        message = "Failed to seed roles",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    message = "Error seeding roles",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Initialize the entire permission system (seed roles and permissions)
+        /// </summary>
+        [HttpPost("initialize-permissions")]
+        public async Task<IActionResult> InitializePermissions()
+        {
+            try
+            {
+                var success = await _permissionManager.InitializePermissionSystemAsync();
+                
+                if (success)
+                {
+                    return Ok(new { 
+                        message = "Permission system initialized successfully",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    return BadRequest(new { 
+                        message = "Failed to initialize permission system",
+                        timestamp = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    message = "Error initializing permission system",
+                    error = ex.Message,
+                    timestamp = DateTime.UtcNow
+                });
             }
         }
     }
