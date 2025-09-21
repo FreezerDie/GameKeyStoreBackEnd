@@ -144,14 +144,62 @@ namespace GameKeyStore.Services
 
         /// <summary>
         /// Check if a user has permission based on claims principal
+        /// Uses role_id from JWT claims if available, falls back to database lookup
         /// </summary>
         public async Task<bool> UserHasPermissionAsync(ClaimsPrincipal user, string resource, string action)
         {
+            // First try to get role_id directly from JWT claims (more efficient)
+            var roleIdClaim = user.FindFirst("role_id")?.Value;
+            if (!string.IsNullOrEmpty(roleIdClaim) && long.TryParse(roleIdClaim, out long roleId))
+            {
+                Console.WriteLine($"Checking permission using JWT role_id: {roleId} for {resource}.{action}");
+                var result = await RoleHasPermissionAsync(roleId, resource, action);
+                Console.WriteLine($"Permission result: {result}");
+                return result;
+            }
+
+            // Fallback to database user lookup
             var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 return false;
 
+            Console.WriteLine($"Falling back to database lookup for user {userId} for {resource}.{action}");
             return await UserHasPermissionAsync(userId, resource, action);
+        }
+
+        /// <summary>
+        /// Check if a role has a specific permission
+        /// </summary>
+        public async Task<bool> RoleHasPermissionAsync(long roleId, string resource, string action)
+        {
+            var cacheKey = $"role_permission_{roleId}_{resource}_{action}";
+
+            if (_cache.TryGetValue(cacheKey, out bool cachedResult))
+            {
+                Console.WriteLine($"Cache hit for {cacheKey}: {cachedResult}");
+                return cachedResult;
+            }
+
+            try
+            {
+                Console.WriteLine($"Checking permissions for role {roleId}");
+                var permissions = await GetRolePermissionsAsync(roleId);
+                Console.WriteLine($"Role {roleId} has {permissions.Count} permissions");
+
+                var hasPermission = permissions.Any(p =>
+                    p.Resource.Equals(resource, StringComparison.OrdinalIgnoreCase) &&
+                    p.Action.Equals(action, StringComparison.OrdinalIgnoreCase));
+
+                Console.WriteLine($"Role {roleId} has permission {resource}.{action}: {hasPermission}");
+                _cache.Set(cacheKey, hasPermission, TimeSpan.FromMinutes(CacheExpirationMinutes));
+                return hasPermission;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error checking permissions for role {roleId}: {ex.Message}");
+                _cache.Set(cacheKey, false, TimeSpan.FromMinutes(1));
+                return false;
+            }
         }
 
         /// <summary>

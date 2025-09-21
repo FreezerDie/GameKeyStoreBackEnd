@@ -4,6 +4,10 @@ using GameKeyStore.Services;
 using GameKeyStore.Models;
 using GameKeyStore.Authorization;
 using System.Security.Claims;
+using System.Linq;
+
+// Use named parameters instead of ClaimTypes
+using static GameKeyStore.Services.AuthService;
 
 namespace GameKeyStore.Controllers
 {
@@ -23,6 +27,21 @@ namespace GameKeyStore.Controllers
         }
 
         /// <summary>
+        /// Debug endpoint - test if application is running
+        /// </summary>
+        [HttpGet("api/cart/debug")]
+        public IActionResult Debug()
+        {
+            return Ok(new {
+                message = "Cart debug endpoint working",
+                timestamp = DateTime.UtcNow,
+                userAuthenticated = User.Identity?.IsAuthenticated ?? false,
+                claimsCount = User.Claims.Count(),
+                claims = User.Claims.Select(c => new { c.Type, c.Value })
+            });
+        }
+
+        /// <summary>
         /// Get current user's cart items with game and game key details
         /// </summary>
         /// <param name="includeDetails">Whether to include game and game key details (default: true)</param>
@@ -32,12 +51,24 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                
+                // Debug logging for authentication
+                Console.WriteLine("User.Identity.IsAuthenticated: " + User.Identity?.IsAuthenticated);
+                Console.WriteLine("User.Claims.Count: " + User.Claims.Count());
+                foreach (var claim in User.Claims)
+                {
+                    Console.WriteLine($"Claim: {claim.Type} = {claim.Value}");
+                }
+
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
+                Console.WriteLine("User ID Claim: " + userIdClaim);
+
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
+                    Console.WriteLine("Returning 401: Invalid token - userIdClaim is null or not parseable");
                     return Unauthorized(new { message = "Invalid token" });
                 }
+
+                Console.WriteLine("Parsed userId: " + userId);
 
                 await _supabaseService.InitializeAsync();
                 var client = _supabaseService.GetClient();
@@ -89,7 +120,7 @@ namespace GameKeyStore.Controllers
                     }
                     
                     // Create extended DTOs with details
-                    var cartItemsWithDetails = cartItems.Select(cartItem => 
+                    var cartItemsWithDetailsList = cartItems.Select(cartItem =>
                     {
                         var cartItemWithDetails = new CartItemWithDetailsDto
                         {
@@ -107,11 +138,11 @@ namespace GameKeyStore.Controllers
                         };
                         return cartItemWithDetails;
                     }).ToList();
-                    
-                    return Ok(new { 
+
+                    return Ok(new {
                         message = "Cart items with details fetched successfully",
-                        count = cartItemsWithDetails.Count,
-                        data = cartItemsWithDetails
+                        count = cartItemsWithDetailsList.Count,
+                        data = cartItemsWithDetailsList
                     });
                 }
                 else
@@ -146,7 +177,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -300,7 +331,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -351,7 +382,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -400,7 +431,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -442,7 +473,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -661,7 +692,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -783,7 +814,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {
@@ -930,7 +961,7 @@ namespace GameKeyStore.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userIdClaim = User.FindFirst(ClaimNameId)?.Value;
                 
                 if (userIdClaim == null || !long.TryParse(userIdClaim, out long userId))
                 {

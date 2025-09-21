@@ -159,6 +159,8 @@ namespace GameKeyStore.Services
                 var existingRoles = existingRolesResponse.Models ?? new List<Role>();
                 var existingRoleNames = existingRoles.Select(r => r.Name).ToHashSet();
 
+                _logger.LogInformation("Found {Count} existing roles in database", existingRoles.Count);
+
                 // Get all role templates
                 var roleTemplates = PermissionConstants.RoleTemplates.GetAllRoleTemplates();
                 var successCount = 0;
@@ -167,6 +169,7 @@ namespace GameKeyStore.Services
                 {
                     if (!existingRoleNames.Contains(template.Name))
                     {
+                        _logger.LogInformation("Creating new role: {RoleName}", template.Name);
                         var createdRole = await CreateRoleFromTemplateAsync(template);
                         if (createdRole != null)
                         {
@@ -175,7 +178,10 @@ namespace GameKeyStore.Services
                     }
                     else
                     {
-                        _logger.LogInformation("Role '{RoleName}' already exists", template.Name);
+                        _logger.LogInformation("Role '{RoleName}' already exists, ensuring permissions are assigned", template.Name);
+                        // Find existing role and ensure it has the correct permissions
+                        var existingRole = existingRoles.First(r => r.Name == template.Name);
+                        await AssignPermissionsToRoleAsync(existingRole.Id, template.Permissions);
                     }
                 }
 
