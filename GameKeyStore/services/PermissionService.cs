@@ -346,7 +346,7 @@ namespace GameKeyStore.Services
         }
 
         /// <summary>
-        /// Get available role templates from code constants
+        /// Get available role templates from code constants.
         /// </summary>
         public List<RoleTemplate> GetAvailableRoleTemplates()
         {
