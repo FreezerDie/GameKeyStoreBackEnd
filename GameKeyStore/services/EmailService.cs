@@ -18,12 +18,17 @@ namespace GameKeyStore.Services
         private readonly ZeptoMailOptions _options;
         private readonly ILogger<EmailService> _logger;
 
-        public EmailService(HttpClient httpClient, IConfiguration configuration, ILogger<EmailService> logger)
+        public EmailService(HttpClient httpClient, ILogger<EmailService> logger)
         {
             _httpClient = httpClient;
             _logger = logger;
-            _options = new ZeptoMailOptions();
-            configuration.GetSection("ZeptoMail").Bind(_options);
+            _options = new ZeptoMailOptions
+            {
+                ApiUrl = Environment.GetEnvironmentVariable("ZEPTOMAIL_API_URL") ?? throw new InvalidOperationException("ZEPTOMAIL_API_URL environment variable is not set"),
+                ApiKey = Environment.GetEnvironmentVariable("ZEPTOMAIL_API_KEY") ?? throw new InvalidOperationException("ZEPTOMAIL_API_KEY environment variable is not set"),
+                FromAddress = Environment.GetEnvironmentVariable("ZEPTOMAIL_FROM_ADDRESS") ?? throw new InvalidOperationException("ZEPTOMAIL_FROM_ADDRESS environment variable is not set"),
+                FromName = Environment.GetEnvironmentVariable("ZEPTOMAIL_FROM_NAME") ?? "GameKeyStore"
+            };
         }
 
         public async Task<bool> SendOrderConfirmationEmailAsync(string recipientEmail, string recipientName, OrderWithSubOrdersDto order)
